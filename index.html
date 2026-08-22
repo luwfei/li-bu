@@ -1,0 +1,2706 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>礼簿</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<style>
+* { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; }
+.page { display: none; min-height: 100vh; padding-bottom: 70px; }
+.page.active { display: block; }
+.tab-active { color: #dc2626; }
+.tag-btn { transition: all 0.15s; }
+.tag-btn.selected { background: #dc2626; color: white; border-color: #dc2626; }
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 50; display: none; }
+.modal-overlay.active { display: flex; align-items: center; justify-content: center; }
+input, textarea, select { font-size: 16px; -webkit-appearance: none; }
+.fade-in { animation: fadeIn 0.2s ease; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.white-theme { --theme-color: #6b7280; --theme-bg: #f9fafb; --theme-card: #ffffff; --theme-border: #e5e7eb; }
+    .red-theme { --theme-color: #dc2626; --theme-bg: #fef2f2; --theme-card: #ffffff; --theme-border: #fecaca; }
+    ::-webkit-scrollbar { width: 0; }
+    #cover-page {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: #3d2b1f;
+      z-index: 100;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      overflow: hidden;
+    }
+    #cover-page.hidden { display: none; }
+    .cover-bg-pattern {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      opacity: 0.06;
+      background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    }
+    .cover-border-outer {
+      position: relative;
+      width: 85%; max-width: 340px;
+      border: 2px solid #b8956a;
+      padding: 8px;
+      animation: coverFadeIn 1.2s ease-out;
+    }
+    .cover-border-inner {
+      border: 1px solid #b8956a;
+      padding: 32px 20px;
+      text-align: center;
+    }
+    .cover-title-main {
+      font-family: "KaiTi", "STKaiti", "BiauKai", "楷体", serif;
+      font-size: 2.4rem;
+      font-weight: bold;
+      color: #d4a574;
+      letter-spacing: 8px;
+      margin-bottom: 12px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+    .cover-title-sub {
+      font-family: "KaiTi", "STKaiti", "楷体", serif;
+      font-size: 1rem;
+      color: #a08060;
+      letter-spacing: 4px;
+      margin-bottom: 32px;
+    }
+    .cover-divider {
+      width: 60px; height: 1px;
+      background: #b8956a;
+      margin: 0 auto 28px;
+      opacity: 0.6;
+    }
+    .cover-enter-btn {
+      font-family: "KaiTi", "STKaiti", "楷体", serif;
+      display: inline-block;
+      padding: 12px 48px;
+      border: 1px solid #b8956a;
+      color: #d4a574;
+      font-size: 1.1rem;
+      letter-spacing: 6px;
+      background: transparent;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .cover-enter-btn:active {
+      background: #b8956a;
+      color: #3d2b1f;
+    }
+    .cover-corner {
+      position: absolute; width: 12px; height: 12px;
+      border-color: #d4a574;
+      border-style: solid;
+    }
+    .cover-corner-tl { top: -2px; left: -2px; border-width: 2px 0 0 2px; }
+    .cover-corner-tr { top: -2px; right: -2px; border-width: 2px 2px 0 0; }
+    .cover-corner-bl { bottom: -2px; left: -2px; border-width: 0 0 2px 2px; }
+    .cover-corner-br { bottom: -2px; right: -2px; border-width: 0 2px 2px 0; }
+    .cover-bottom-text {
+      position: absolute; bottom: 40px;
+      font-family: "KaiTi", "STKaiti", "楷体", serif;
+      font-size: 0.75rem;
+      color: #6b5a4a;
+      letter-spacing: 2px;
+    }
+    @keyframes coverFadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes coverFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+    .cover-enter-btn { animation: coverFloat 3s ease-in-out infinite; }
+  #cover-page ~ .fixed { display: none; }
+  #cover-page.hidden ~ .fixed { display: block; }
+  </style>
+  </head>
+  <body class="bg-gray-50">
+
+  <!-- ============ 封面页 ============ -->
+  <div id="cover-page">
+    <div class="cover-bg-pattern"></div>
+    <div class="cover-border-outer">
+      <div class="cover-corner cover-corner-tl"></div>
+      <div class="cover-corner cover-corner-tr"></div>
+      <div class="cover-corner cover-corner-bl"></div>
+      <div class="cover-corner cover-corner-br"></div>
+      <div class="cover-border-inner">
+        <div class="cover-title-main">张孝礼簿</div>
+        <div class="cover-title-sub">礼尚往来 · 情记于心</div>
+        <div class="cover-divider"></div>
+        <button onclick="enterApp()" class="cover-enter-btn">进 入</button>
+      </div>
+    </div>
+    <div class="cover-bottom-text">传承中华礼俗 · 记录人间温情</div>
+  </div>
+
+  <!-- ============ 首页 ============ -->
+  <div id="page-home" class="page">
+    <div class="bg-gradient-to-b from-red-600 to-red-500 text-white px-5 pt-12 pb-8">
+      <div class="flex items-center justify-between mb-2">
+        <button onclick="goBackToCover()" class="text-white/70 text-sm" style="font-family: KaiTi, STKaiti, 楷体, serif; letter-spacing: 2px;">封面</button>
+        <div class="w-10"></div>
+      </div>
+      <h1 class="text-2xl font-bold text-center">礼簿</h1>
+      <p id="home-slogan" class="text-center text-red-100 mt-2 text-sm">记录每一份心意</p>
+    </div>
+    <div class="px-5 mt-6 space-y-4">
+      <!-- 数据持久化状态提示 -->
+      <div id="storage-status" class="hidden">
+        <div class="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
+          <span class="text-2xl">⚠️</span>
+          <div class="flex-1">
+            <p class="text-red-600 font-bold text-sm">数据无法自动保存！</p>
+            <p class="text-red-500 text-xs mt-1">请用浏览器打开（不要用微信），或定期导出备份</p>
+          </div>
+          <button onclick="exportData()" class="bg-red-500 text-white text-xs rounded-lg px-3 py-2">立即备份</button>
+        </div>
+      </div>
+
+      <div onclick="goEventList('red')" class="bg-gradient-to-br from-red-500 to-red-600 rounded-2xl p-6 text-white shadow-lg active:scale-95 transition-transform cursor-pointer">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-3xl font-bold">红事</div>
+            <div class="text-red-100 text-sm mt-1">婚嫁 / 满月酒 / 乔迁 / 寿宴</div>
+          </div>
+          <div class="text-5xl">囍</div>
+        </div>
+      </div>
+      <div onclick="goEventList('white')" class="bg-gradient-to-br from-gray-600 to-gray-700 rounded-2xl p-6 text-white shadow-lg active:scale-95 transition-transform cursor-pointer">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-3xl font-bold">白事</div>
+            <div class="text-gray-200 text-sm mt-1">丧葬 / 祭奠</div>
+          </div>
+          <div class="text-5xl">奠</div>
+        </div>
+      </div>
+      <div onclick="switchTab('gift')" class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl p-6 text-white shadow-lg active:scale-95 transition-transform cursor-pointer">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-3xl font-bold">送礼</div>
+            <div class="text-orange-100 text-sm mt-1">我送出的礼金记录</div>
+          </div>
+          <div class="text-5xl">🎁</div>
+        </div>
+      </div>
+    </div>
+    <div class="px-5 mt-6">
+      <div class="bg-white rounded-2xl p-5 shadow-sm">
+        <div class="text-lg font-bold text-gray-800 mb-3">快捷功能</div>
+        <div class="grid grid-cols-3 gap-3">
+          <div onclick="switchTab('search')" class="flex flex-col items-center active:scale-95 transition-transform cursor-pointer">
+            <div class="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-2xl">🔍</div>
+            <span class="text-sm text-gray-600 mt-1">搜索</span>
+          </div>
+          <div onclick="switchTab('stats')" class="flex flex-col items-center active:scale-95 transition-transform cursor-pointer">
+            <div class="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center text-2xl">📊</div>
+            <span class="text-sm text-gray-600 mt-1">统计</span>
+          </div>
+          <div onclick="switchTab('profile')" class="flex flex-col items-center active:scale-95 transition-transform cursor-pointer">
+            <div class="w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center text-2xl">⚙️</div>
+            <span class="text-sm text-gray-600 mt-1">我的</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="home-recent" class="px-5 mt-6"></div>
+  </div>
+
+  <!-- ============ 喜事列表页 ============ -->
+  <div id="page-event-list" class="page">
+    <div id="event-list-header" class="bg-gradient-to-r from-red-500 to-red-600 text-white px-5 pt-12 pb-4 sticky top-0 z-10">
+      <div class="flex items-center justify-between">
+        <button onclick="switchTab('home')" class="text-white text-2xl">‹</button>
+        <h2 id="event-list-title" class="text-xl font-bold">红事</h2>
+        <button id="add-event-btn" onclick="showAddEventModal()" class="bg-white/20 rounded-full w-10 h-10 flex items-center justify-center text-2xl">+</button>
+      </div>
+    </div>
+    <div id="event-list-content" class="px-5 mt-4"></div>
+  </div>
+
+  <!-- ============ 喜事详情页 ============ -->
+  <div id="page-event-detail" class="page">
+    <div id="detail-header" class="px-5 pt-12 pb-4 text-white sticky top-0 z-10">
+      <div class="flex items-center justify-between">
+        <button onclick="goBackToEventList()" class="text-white text-2xl">‹</button>
+        <h2 id="detail-title" class="text-xl font-bold">喜事详情</h2>
+        <button onclick="showAddGiftModal(currentEventId)" class="bg-white/20 rounded-full w-10 h-10 flex items-center justify-center text-2xl">+</button>
+      </div>
+    </div>
+    <div id="detail-content" class="px-5 mt-4"></div>
+  </div>
+
+  <!-- ============ 搜索页 ============ -->
+  <div id="page-search" class="page">
+    <div class="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-5 pt-12 pb-4 sticky top-0 z-10">
+      <div class="flex items-center gap-3">
+        <button onclick="switchTab('home')" class="text-white text-2xl">‹</button>
+        <div class="flex-1 relative">
+          <input id="search-input" type="text" placeholder="搜索姓名、手机号..." oninput="doSearch()" class="w-full bg-white/20 rounded-xl px-4 py-2.5 text-white placeholder-white/60 outline-none border-0">
+        </div>
+      </div>
+    </div>
+    <div id="search-results" class="px-5 mt-4"></div>
+  </div>
+
+  <!-- ============ 送礼页 ============ -->
+  <div id="page-gift" class="page">
+    <div class="bg-orange-500 px-5 pt-12 pb-4 text-white sticky top-0 z-10">
+      <div class="flex items-center justify-between">
+        <h2 class="text-xl font-bold">送礼记录</h2>
+        <button onclick="showAddSentGiftModal()" class="bg-white/20 rounded-full w-10 h-10 flex items-center justify-center text-2xl">+</button>
+      </div>
+    </div>
+    <div id="gift-content" class="px-5 mt-4"></div>
+  </div>
+
+  <!-- ============ 统计页 ============ -->
+  <div id="page-stats" class="page">
+    <div class="bg-gradient-to-r from-green-500 to-green-600 text-white px-5 pt-12 pb-4 sticky top-0 z-10">
+      <div class="flex items-center">
+        <button onclick="switchTab('home')" class="text-white text-2xl mr-3">‹</button>
+        <h2 class="text-xl font-bold">数据统计</h2>
+      </div>
+    </div>
+    <div id="stats-content" class="px-5 mt-4"></div>
+  </div>
+
+  <!-- ============ 我的页 ============ -->
+  <div id="page-profile" class="page">
+    <div class="bg-purple-600 px-5 pt-12 pb-4 text-white sticky top-0 z-10">
+      <h2 class="text-xl font-bold">我的</h2>
+    </div>
+    <div class="px-5 mt-4 space-y-4">
+      <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <div onclick="showSloganEdit()" class="flex items-center justify-between px-5 py-4 border-b border-gray-100 cursor-pointer active:bg-gray-50">
+          <span class="text-lg">首页标语</span>
+          <span class="text-gray-400 text-xl">›</span>
+        </div>
+        <div id="slogan-edit-section" class="hidden px-5 py-4">
+          <input id="slogan-input" type="text" value="" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-purple-400 outline-none text-base mb-3" placeholder="请输入首页标语">
+          <button onclick="saveSlogan()" class="w-full bg-purple-500 text-white rounded-xl py-3 text-lg font-bold">保存</button>
+        </div>
+        <div onclick="showRemarkOptions()" class="flex items-center justify-between px-5 py-4 border-b border-gray-100 cursor-pointer active:bg-gray-50">
+          <span class="text-lg">备注选项管理</span>
+          <span class="text-gray-400 text-xl">›</span>
+        </div>
+        <div id="remark-options-section" class="hidden px-5 py-4">
+          <div id="remark-options-list" class="flex flex-wrap gap-2 mb-3"></div>
+          <button onclick="showAddRemarkModal()" class="w-full bg-purple-50 text-purple-600 rounded-lg py-2 text-sm font-bold">+ 添加选项</button>
+        </div>
+        <div onclick="exportData()" class="flex items-center justify-between px-5 py-4 border-b border-gray-100 cursor-pointer active:bg-gray-50">
+          <span class="text-lg">导出数据备份</span>
+          <span class="text-gray-400 text-xl">›</span>
+        </div>
+        <div onclick="importData()" class="flex items-center justify-between px-5 py-4 border-b border-gray-100 cursor-pointer active:bg-gray-50">
+          <span class="text-lg">导入备份</span>
+          <span class="text-gray-400 text-xl">›</span>
+        </div>
+        <div onclick="clearAllData()" class="flex items-center justify-between px-5 py-4 cursor-pointer active:bg-gray-50">
+          <span class="text-lg text-red-500">清空所有数据</span>
+          <span class="text-red-400 text-xl">›</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 底部导航 ============ -->
+  <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-40 pb-safe">
+    <div class="flex items-center justify-around py-2">
+      <div onclick="switchTab('home')" id="tab-home" class="flex flex-col items-center cursor-pointer flex-1">
+        <span class="text-xl">🏠</span>
+        <span class="text-xs text-gray-500 mt-0.5 tab-active">首页</span>
+      </div>
+      <div onclick="switchTab('search')" id="tab-search" class="flex flex-col items-center cursor-pointer flex-1">
+        <span class="text-xl">🔍</span>
+        <span class="text-xs text-gray-500 mt-0.5">搜索</span>
+      </div>
+      <div onclick="switchTab('gift')" id="tab-gift" class="flex flex-col items-center cursor-pointer flex-1">
+        <span class="text-xl">🎁</span>
+        <span class="text-xs text-gray-500 mt-0.5">送礼</span>
+      </div>
+      <div onclick="switchTab('profile')" id="tab-profile" class="flex flex-col items-center cursor-pointer flex-1">
+        <span class="text-xl">⚙️</span>
+        <span class="text-xs text-gray-500 mt-0.5">我的</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 通用弹窗 ============ -->
+  <div id="modal-overlay" class="modal-overlay" onclick="closeModal(event)">
+    <div id="modal-content" class="bg-white rounded-2xl w-[90%] max-w-md max-h-[85vh] overflow-y-auto fade-in" onclick="event.stopPropagation()"></div>
+  </div>
+
+  <!-- ============ OCR加载提示 ============ -->
+  <div id="ocr-loading" class="modal-overlay" onclick="event.stopPropagation()">
+    <div class="bg-white rounded-2xl p-6 w-[80%] text-center">
+      <div class="text-4xl mb-3">📝</div>
+      <div class="text-lg font-bold text-gray-800">正在识别中...</div>
+      <div id="ocr-progress" class="text-sm text-gray-500 mt-2"></div>
+      <div class="mt-3 w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+        <div id="ocr-bar" class="bg-red-500 h-full transition-all duration-300" style="width:0%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 图片/视频上传（隐藏input，通过label触发） -->
+  <input type="file" id="media-input" accept="image/*,video/*" style="display:none">
+  <input type="file" id="qrcode-input" accept="image/*" style="display:none">
+  <input type="file" id="ocr-input" accept="image/*" capture="environment" style="display:none">
+  <input type="file" id="import-input" accept=".json" style="display:none">
+
+<script>
+// ===================== 数据层 =====================
+const STORE_KEY = 'rw_gift_data';
+const DB_NAME = 'rw_gift_db';
+const DB_STORE = 'media';
+let db = null;
+
+let _memStore = null;
+
+function checkStorageAvailable() {
+  try {
+    const testKey = '__rw_test__';
+    localStorage.setItem(testKey, 'test');
+    const val = localStorage.getItem(testKey);
+    localStorage.removeItem(testKey);
+    return val === 'test';
+  } catch(e) {
+    return false;
+  }
+}
+
+let _storageAvailable = checkStorageAvailable();
+
+function loadData() {
+  let def = { events: [], gifts: [], sentGifts: [], remarkOptions: ['亲戚','朋友','同学','同事','本家','外家','邻居','其他'] };
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw) {
+      const d = JSON.parse(raw);
+      if (d.events && d.gifts) { 
+        def = d; 
+        if (!def.remarkOptions) def.remarkOptions = ['亲戚','朋友','同学','同事','本家','外家','邻居','其他']; 
+        if (!def.sentGifts) def.sentGifts = []; 
+      }
+    }
+  } catch(e) {}
+  return def;
+}
+
+function getHomeSlogan() {
+  return appData.homeSlogan || '记录每一份心意';
+}
+
+function renderHomeSlogan() {
+  const el = document.getElementById('home-slogan');
+  if (el) el.textContent = getHomeSlogan();
+}
+
+function saveData(data) {
+  _memStore = data;
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(data));
+    _storageAvailable = true;
+  } catch(e) {
+    _storageAvailable = false;
+    console.warn('localStorage 不可用，数据仅保存在内存中，刷新页面后会丢失');
+  }
+}
+
+let appData = loadData();
+let currentEventType = 'red';
+let currentEventId = null;
+let currentGiftEditId = null;
+let currentSentGiftEditId = null;
+
+// ===================== IndexedDB =====================
+function openDB() {
+  return new Promise((resolve, reject) => {
+    if (!window.indexedDB) {
+      reject(new Error('当前环境不支持 IndexedDB'));
+      return;
+    }
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = (e) => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains(DB_STORE)) d.createObjectStore(DB_STORE, { keyPath: 'id' });
+    };
+    req.onsuccess = (e) => { db = e.target.result; resolve(db); };
+    req.onerror = (e) => reject(new Error('打开数据库失败'));
+  });
+}
+
+function saveMedia(id, blob) {
+  return new Promise((resolve, reject) => {
+    try {
+      if (!db) { openDB().then(() => saveMedia(id, blob)).then(resolve).catch(reject); return; }
+      const tx = db.transaction([DB_STORE], 'readwrite');
+      const store = tx.objectStore(DB_STORE);
+      const req = store.put({ id, blob });
+      req.onsuccess = () => resolve(id);
+      req.onerror = (e) => reject(new Error('数据库写入失败'));
+    } catch(e) {
+      reject(new Error('存储功能异常'));
+    }
+  });
+}
+
+function getMedia(id) {
+  return new Promise((resolve, reject) => {
+    try {
+      if (!db) { openDB().then(() => getMedia(id)).then(resolve).catch(reject); return; }
+      const tx = db.transaction([DB_STORE], 'readonly');
+      const store = tx.objectStore(DB_STORE);
+      const req = store.get(id);
+      req.onsuccess = () => resolve(req.result ? req.result.blob : null);
+      req.onerror = (e) => reject(new Error('读取失败'));
+    } catch(e) {
+      reject(new Error('读取功能异常'));
+    }
+  });
+}
+
+// ===================== 工具函数 =====================
+function genId(prefix) {
+  return prefix + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+}
+
+function formatDate(ts) {
+  const d = new Date(ts);
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function formatMoney(n) {
+  return '¥' + Number(n).toLocaleString('zh-CN');
+}
+
+function escapeHtml(s) {
+  if (!s) return '';
+  const div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+// ===================== 文件上传 =====================
+function compressImage(file, maxSize = 1200) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let w = img.width, h = img.height;
+      if (w > maxSize || h > maxSize) {
+        const ratio = Math.min(maxSize / w, maxSize / h);
+        w = Math.floor(w * ratio);
+        h = Math.floor(h * ratio);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.85);
+    };
+    img.src = url;
+  });
+}
+
+// 全局文件上传监听器（使用 label for 方式触发）
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('media-input').addEventListener('change', async (e) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const ev = appData.events.find(x => x.id === currentEventId);
+    if (!ev) return;
+    for (const file of files) {
+      if (file.type.startsWith('image/')) {
+        try {
+          const compressed = await compressImage(file);
+          const id = genId('img');
+          const url = URL.createObjectURL(compressed);
+          await saveMedia(id, compressed);
+          ev.media.push({ id, type: 'image', createdAt: Date.now() });
+        } catch(err) {
+          console.warn('图片处理失败', err);
+          const id = genId('img');
+          const url = URL.createObjectURL(file);
+          await saveMedia(id, file);
+          ev.media.push({ id, type: 'image', createdAt: Date.now() });
+        }
+      } else if (file.type.startsWith('video/')) {
+        const id = genId('vid');
+        await saveMedia(id, file);
+        ev.media.push({ id, type: 'video', createdAt: Date.now() });
+      }
+    }
+    saveData(appData);
+    renderEventDetail();
+    e.target.value = '';
+  });
+});
+
+// ===================== 页面导航 =====================
+function switchTab(tab) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + tab).classList.add('active');
+  document.querySelectorAll('[id^="tab-"]').forEach(t => {
+    const span = t.querySelector('span:last-child');
+    if (span) span.classList.remove('tab-active');
+  });
+  const tabEl = document.getElementById('tab-' + tab);
+  if (tabEl) { const span = tabEl.querySelector('span:last-child'); if (span) span.classList.add('tab-active'); }
+  window.scrollTo(0, 0);
+  if (tab === 'home') renderHomeRecent();
+  if (tab === 'stats') renderStats();
+  if (tab === 'profile') renderRemarkOptions();
+  if (tab === 'search') doSearch();
+  if (tab === 'gift') renderSentGiftList();
+}
+
+function goEventList(type) {
+  currentEventType = type;
+  switchTab('event-list');
+  renderEventList();
+}
+
+function goBackToEventList() {
+  renderEventList();
+  switchTab('event-list');
+}
+
+function goEventDetail(eventId) {
+  currentEventId = eventId;
+  switchTab('event-detail');
+  renderEventDetail();
+}
+
+// ===================== 首页 =====================
+function renderHomeRecent() {
+  renderHomeSlogan();
+  const container = document.getElementById('home-recent');
+  const recent = appData.events.sort((a,b) => b.date.localeCompare(a.date)).slice(0, 5);
+  if (recent.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+  let html = '<div class="text-lg font-bold text-gray-800 px-5 mb-3">人生礼簿</div>';
+  recent.forEach(ev => {
+    const gifts = appData.gifts.filter(g => g.eventId === ev.id);
+    const total = gifts.reduce((s, g) => s + Number(g.amount), 0);
+    const bg = ev.type === 'red' ? 'bg-gradient-to-br from-red-500 to-red-600' : 'bg-gradient-to-br from-gray-600 to-gray-700';
+    html += `<div class="${bg} rounded-2xl p-4 text-white shadow-sm mb-3 mx-5">
+      <div class="flex items-center justify-between">
+        <div class="flex-1 min-w-0">
+          <div class="font-bold truncate">${escapeHtml(ev.name)}</div>
+          <div class="text-white/80 text-sm mt-1">${formatDate(ev.date)} · ${gifts.length}人送礼 · ${formatMoney(total)}</div>
+        </div>
+        <div class="flex items-center gap-2 ml-2">
+          <button onclick="event.stopPropagation();showEditEventModal('${ev.id}')" class="text-xs bg-white/20 text-white px-2 py-1 rounded-lg active:bg-white/30 whitespace-nowrap">修改</button>
+          <span class="text-gray-300 text-xl leading-none">›</span>
+        </div>
+      </div>
+    </div>`;
+  });
+  container.innerHTML = html;
+}
+
+// ===================== 喜事列表 =====================
+function renderEventList() {
+  const container = document.getElementById('event-list-content');
+  const header = document.getElementById('event-list-header');
+  const title = document.getElementById('event-list-title');
+  const btn = document.getElementById('add-event-btn');
+  const events = appData.events.filter(e => e.type === currentEventType).sort((a, b) => b.date.localeCompare(a.date));
+  
+  if (currentEventType === 'red') {
+    header.className = 'bg-gradient-to-r from-red-500 to-red-600 text-white px-5 pt-12 pb-4 sticky top-0 z-10';
+    title.textContent = '红事';
+    if (btn) btn.className = 'bg-white/20 rounded-full w-10 h-10 flex items-center justify-center text-2xl';
+  } else {
+    header.className = 'bg-gradient-to-r from-gray-600 to-gray-700 text-white px-5 pt-12 pb-4 sticky top-0 z-10';
+    title.textContent = '白事';
+    if (btn) btn.className = 'bg-white/20 rounded-full w-10 h-10 flex items-center justify-center text-2xl';
+  }
+  
+  if (events.length === 0) {
+    container.innerHTML = `<div class="text-center py-20 text-gray-400">
+      <div class="text-5xl mb-3">${currentEventType === 'red' ? '囍' : '奠'}</div>
+      <p class="text-lg">暂无${currentEventType === 'red' ? '红' : '白'}事记录</p>
+      <p class="text-sm mt-2">点击右上角 + 创建</p>
+    </div>`;
+    return;
+  }
+  
+  let html = '<div class="space-y-3">';
+  events.forEach(ev => {
+    const gifts = appData.gifts.filter(g => g.eventId === ev.id);
+    const total = gifts.reduce((s, g) => s + Number(g.amount), 0);
+    const bg = currentEventType === 'red' ? 'bg-white border-red-100' : 'bg-white border-gray-100';
+    html += `<div class="${bg} rounded-2xl p-4 shadow-sm border">
+      <div class="flex items-center justify-between">
+        <div class="flex-1 min-w-0 cursor-pointer active:bg-gray-50" onclick="goEventDetail('${ev.id}')">
+          <div class="font-bold text-gray-800">${escapeHtml(ev.name)}</div>
+          <div class="text-sm text-gray-400 mt-1">${formatDate(ev.date)} · ${gifts.length}人 · ${formatMoney(total)}</div>
+        </div>
+        <div class="flex items-center gap-2 ml-2">
+          <button onclick="event.stopPropagation();showEditEventModal('${ev.id}')" class="text-xs bg-blue-50 text-blue-500 px-2 py-1 rounded-lg active:bg-blue-100 whitespace-nowrap">修改</button>
+          <span class="text-gray-400 text-xl">›</span>
+        </div>
+      </div>
+    </div>`;
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+function showAddEventModal() {
+  const categories = currentEventType === 'red'
+    ? ['婚嫁','满月酒','乔迁','寿宴','升学','其他']
+    : ['丧葬','祭奠','其他'];
+
+  let html = `<div class="p-5">
+    <h3 class="text-xl font-bold text-center mb-5">新建${currentEventType === 'red' ? '红' : '白'}事</h3>
+    <div class="space-y-4">
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">${currentEventType === 'red' ? '红' : '白'}事名称</label>
+        <input id="new-event-name" type="text" placeholder="如：张三婚礼" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-red-400 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">类型</label>
+        <div class="flex flex-wrap gap-2" id="new-event-category-tags">`;
+    categories.forEach((cat, i) => {
+      html += `<button onclick="selectCategory(this, '${cat}')" class="tag-btn border-2 border-gray-200 rounded-full px-4 py-2 text-sm ${i===0?'selected':''}" data-cat="${cat}">${cat}</button>`;
+    });
+    html += `</div></div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">日期</label>
+        <input id="new-event-date" type="date" value="${formatDate(Date.now())}" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-red-400 outline-none">
+      </div>
+      <button onclick="addNewEvent()" class="w-full ${currentEventType==='red'?'bg-red-500':'bg-gray-600'} text-white rounded-xl py-3 text-lg font-bold mt-2">创建</button>
+    </div>
+  </div>`;
+  showModal(html);
+}
+
+function selectCategory(btn, cat) {
+  btn.parentElement.querySelectorAll('.tag-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+
+function getSelectedCategory() {
+  const sel = document.querySelector('#new-event-category-tags .selected');
+  return sel ? sel.dataset.cat : '';
+}
+
+function addNewEvent() {
+  try {
+    const name = document.getElementById('new-event-name').value.trim();
+    if (!name) { alert('请输入喜事名称'); return; }
+    const date = document.getElementById('new-event-date').value;
+    const category = getSelectedCategory();
+    const ev = { id: genId('evt'), type: currentEventType, name, category, date, createdAt: Date.now(), qrcode: null, media: [] };
+    appData.events.push(ev);
+    saveData(appData);
+    closeModal();
+    renderEventList();
+  } catch(e) {
+    console.error('addNewEvent error:', e);
+    alert('创建失败：' + e.message);
+  }
+}
+
+// 显示编辑事件弹窗
+function showEditEventModal(evId) {
+  const ev = appData.events.find(e => e.id === evId);
+  if (!ev) return;
+  const categories = ev.type === 'red'
+    ? ['婚嫁','满月酒','乔迁','寿宴','升学','其他']
+    : ['丧葬','祭奠','其他'];
+  let html = `<div class="p-5">
+    <h3 class="text-xl font-bold text-center mb-5">修改${ev.type === 'red' ? '红' : '白'}事</h3>
+    <div class="space-y-4">
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">名称</label>
+        <input id="edit-event-name" type="text" value="${escapeHtml(ev.name)}" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-blue-400 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">类型</label>
+        <div class="flex flex-wrap gap-2" id="edit-event-category-tags">`;
+  categories.forEach((cat, i) => {
+    const selected = ev.category === cat ? 'selected' : '';
+    html += `<button onclick="selectCategory(this, '${cat}')" class="tag-btn border-2 border-gray-200 rounded-full px-4 py-2 text-sm ${selected}" data-cat="${cat}">${cat}</button>`;
+  });
+  html += `</div></div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">日期</label>
+        <input id="edit-event-date" type="date" value="${ev.date}" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-blue-400 outline-none">
+      </div>
+      <button onclick="saveEditEvent('${evId}')" class="w-full ${ev.type==='red'?'bg-red-500':'bg-gray-600'} text-white rounded-xl py-3 text-lg font-bold mt-2">保存</button>
+      <button onclick="deleteEvent('${evId}')" class="w-full bg-red-50 text-red-500 rounded-xl py-3 text-lg font-bold mt-2">删除</button>
+    </div>
+  </div>`;
+  showModal(html);
+}
+
+function saveEditEvent(evId) {
+  const ev = appData.events.find(e => e.id === evId);
+  if (!ev) return;
+  const name = document.getElementById('edit-event-name').value.trim();
+  const date = document.getElementById('edit-event-date').value;
+  const sel = document.querySelector('#edit-event-category-tags .selected');
+  const category = sel ? sel.dataset.cat : ev.category;
+  if (!name) { alert('请输入名称'); return; }
+  ev.name = name;
+  ev.category = category;
+  ev.date = date;
+  saveData(appData);
+  closeModal();
+  alert('修改已保存');
+  if (document.getElementById('page-event-detail').classList.contains('active')) renderEventDetail();
+  if (document.getElementById('page-home').classList.contains('active')) renderEventList();
+  if (document.getElementById('page-stats').classList.contains('active')) renderStats();
+}
+
+function deleteEvent(evId) {
+  if (!confirm('确定删除此事件？相关礼金记录也将一并删除，此操作不可恢复。')) return;
+  appData.events = appData.events.filter(e => e.id !== evId);
+  appData.gifts = appData.gifts.filter(g => g.eventId !== evId);
+  saveData(appData);
+  closeModal();
+  alert('已删除');
+  goTo('home');
+  renderEventList();
+}
+
+// ===================== 喜事详情 =====================
+function renderEventDetail() {
+  const ev = appData.events.find(e => e.id === currentEventId);
+  if (!ev) return;
+
+  const header = document.getElementById('detail-header');
+  header.className = ev.type === 'red'
+    ? 'px-5 pt-12 pb-4 text-white sticky top-0 z-10 bg-gradient-to-r from-red-500 to-red-600'
+    : 'px-5 pt-12 pb-4 text-white sticky top-0 z-10 bg-gradient-to-r from-gray-600 to-gray-700';
+
+  const titleEl = document.getElementById('detail-title');
+  if (titleEl) {
+    titleEl.textContent = ev.type === 'red' ? '红事详情' : '详情';
+  }
+
+  const gifts = appData.gifts.filter(g => g.eventId === ev.id);
+  const total = gifts.reduce((s, g) => s + Number(g.amount), 0);
+
+  let html = '';
+  
+  // 收款码区域
+  if (ev.qrcode) {
+    html += `<div class="bg-white rounded-2xl p-4 shadow-sm mb-4">
+      <div class="text-center">
+        <div class="text-sm text-gray-500 mb-2">宾客扫码支付</div>
+        <div class="inline-block" id="qrcode-img"></div>
+        <p class="text-xs text-gray-400 mt-2">扫码后填写信息即可送礼</p>
+      </div>
+    </div>`;
+  }
+
+  // 操作按钮
+  html += `<div class="grid grid-cols-2 gap-3 mb-4">
+    <button onclick="showUploadQRCode('${ev.id}')" class="${ev.type==='red'?'bg-red-50 text-red-500':'bg-gray-50 text-gray-500'} rounded-xl py-3 font-bold text-sm">
+      ${ev.qrcode ? '替换收款码' : '上传收款码'}
+    </button>
+    <button onclick="showGuestRegister('${ev.id}')" class="${ev.type==='red'?'bg-red-50 text-red-500':'bg-gray-50 text-gray-500'} rounded-xl py-3 font-bold text-sm">宾客送礼登记</button>
+  </div>`;
+
+  // 图片视频区域
+  if (ev.media && ev.media.length > 0) {
+    html += `<div class="bg-white rounded-2xl p-4 shadow-sm mb-4">
+      <div class="text-sm font-bold text-gray-800 mb-2">相关图片/视频 <span class="text-xs font-normal text-gray-400">(${ev.media.length})</span></div>
+      <div class="grid grid-cols-3 gap-2">`;
+    ev.media.forEach((m, idx) => {
+      if (m.type === 'image') {
+        html += `<div class="aspect-square bg-gray-100 rounded-lg overflow-hidden relative group" data-mid="${m.id}">
+          <img data-id="${m.id}" class="w-full h-full object-cover bg-gray-100" data-imgid="${m.id}">
+          <button onclick="event.stopPropagation(); deleteMedia('${m.id}', '${ev.id}')" class="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 text-xs flex items-center justify-center opacity-80 hover:opacity-100 active:scale-90 transition-all shadow-sm">×</button>
+        </div>`;
+      } else {
+        html += `<div class="relative" data-mid="${m.id}">
+          <div class="aspect-square bg-gray-100 rounded-lg overflow-hidden" onclick="playVideo('${m.id}', event)">
+            <video data-id="${m.id}" class="w-full h-full object-cover bg-gray-100" preload="metadata" playsinline data-vid="${m.id}"></video>
+            <div id="playbtn-${m.id}" class="absolute inset-0 flex items-center justify-center bg-black/30 pointer-events-none">
+              <div class="w-10 h-10 rounded-full bg-white/80 flex items-center justify-center text-lg">▶</div>
+            </div>
+          </div>
+          <button onclick="event.stopPropagation(); deleteMedia('${m.id}', '${ev.id}')" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-10 h-10 text-base flex items-center justify-center shadow-lg" style="z-index:100;border:2px solid white;font-weight:bold;">×</button>
+        </div>`;
+      }
+    });
+    html += `</div></div>`;
+  }
+
+  // 添加图片/视频按钮
+  html += `<label for="media-input" class="block w-full bg-blue-50 text-blue-500 rounded-xl py-3 font-bold text-sm text-center cursor-pointer mb-4">+ 添加图片/视频</label>`;
+
+  // 礼金明细
+  html += `<div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+    <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+      <span class="font-bold text-gray-800">礼金明细</span>
+      <span class="text-sm text-gray-500">${gifts.length}人 · ${formatMoney(total)}</span>
+    </div>`;
+  
+  if (gifts.length === 0) {
+    html += `<div class="text-center py-8 text-gray-400">
+      <p>暂无礼金记录</p>
+      <p class="text-sm mt-1">点击右上角 + 添加</p>
+    </div>`;
+  } else {
+    gifts.forEach(g => {
+      html += `<div class="px-5 py-3 border-b border-gray-50 flex items-center justify-between">
+        <div class="flex items-center gap-2 flex-1 min-w-0">
+          <span class="font-bold text-gray-800">${escapeHtml(g.name)}</span>
+          ${g.phone ? `<span class="text-xs bg-blue-50 text-blue-500 rounded-full px-2 py-0.5 whitespace-nowrap">📱 ${escapeHtml(g.phone)}</span>` : ''}
+          ${g.remark ? `<span class="text-xs ${ev.type==='red'?'bg-red-50 text-red-500':'bg-gray-100 text-gray-500'} rounded-full px-2 py-0.5 whitespace-nowrap">${escapeHtml(g.remark)}</span>` : ''}
+        </div>
+        <div class="flex items-center gap-2 ml-2">
+          <span class="font-bold ${ev.type==='red'?'text-red-500':'text-gray-600'} whitespace-nowrap">${formatMoney(g.amount)}</span>
+          <button onclick="event.stopPropagation();showEditGiftModal('${g.id}')" class="text-xs bg-blue-50 text-blue-500 px-2 py-1 rounded-lg active:bg-blue-100 whitespace-nowrap">编辑</button>
+          <button onclick="event.stopPropagation();deleteGiftById('${g.id}')" class="text-xs bg-red-50 text-red-500 px-2 py-1 rounded-lg active:bg-red-100 whitespace-nowrap">删除</button>
+        </div>
+      </div>`;
+    });
+  }
+  html += `</div>`;
+
+  // 拍照识别礼金簿按钮
+  html += `<div class="grid grid-cols-2 gap-3 mt-2">
+    <button onclick="scanGiftBookFromCamera('${ev.id}')" class="w-full bg-gradient-to-r from-green-50 to-green-100 text-green-600 rounded-xl py-3 font-bold text-sm flex items-center justify-center gap-2">
+      <span>📷</span> 拍照识别
+    </button>
+    <button onclick="scanGiftBookFromAlbum('${ev.id}')" class="w-full bg-gradient-to-r from-blue-50 to-blue-100 text-blue-600 rounded-xl py-3 font-bold text-sm flex items-center justify-center gap-2">
+      <span>🖼️</span> 相册识别
+    </button>
+  </div>`;
+
+  document.getElementById('detail-content').innerHTML = html;
+
+  // 加载收款码
+  if (ev.qrcode) {
+    loadQRCodeImage(document.getElementById('qrcode-img'), ev.qrcode);
+  }
+
+  // 手动加载媒体文件（图片和视频）
+  loadEventMedia(ev.id);
+}
+
+function loadEventMedia(eventId) {
+  const ev = appData.events.find(e => e.id === eventId);
+  if (!ev || !ev.media) return;
+  ev.media.forEach(m => {
+    if (m.type === 'image') {
+      const img = document.querySelector('img[data-imgid="' + m.id + '"]');
+      if (img) {
+        getMedia(m.id).then(blob => {
+          if (blob) img.src = URL.createObjectURL(blob);
+        }).catch(() => {});
+      }
+    } else if (m.type === 'video') {
+      const video = document.querySelector('video[data-vid="' + m.id + '"]');
+      if (video) {
+        getMedia(m.id).then(blob => {
+          if (blob) {
+            video.src = URL.createObjectURL(blob);
+            video.load();
+            const playBtn = document.getElementById('playbtn-' + m.id);
+            video.addEventListener('play', () => {
+              if (playBtn) playBtn.style.display = 'none';
+            });
+            video.addEventListener('pause', () => {
+              if (playBtn) playBtn.style.display = 'flex';
+            });
+            video.addEventListener('ended', () => {
+              if (playBtn) playBtn.style.display = 'flex';
+            });
+          }
+        }).catch(() => {});
+      }
+    }
+  });
+}
+
+function deleteMedia(mediaId, eventId) {
+  if (!confirm('确定删除此图片/视频？')) return;
+  const ev = appData.events.find(e => e.id === eventId);
+  if (!ev) return;
+  // 从数组中移除
+  ev.media = ev.media.filter(m => m.id !== mediaId);
+  // 从 IndexedDB 删除
+  try {
+    if (db) {
+      const tx = db.transaction([DB_STORE], 'readwrite');
+      const store = tx.objectStore(DB_STORE);
+      store.delete(mediaId);
+    }
+  } catch(e) {
+    console.warn('删除媒体文件失败:', e);
+  }
+  saveData(appData);
+  renderEventDetail();
+}
+
+function playVideo(mediaId, event) {
+  event.stopPropagation();
+  const video = document.querySelector('video[data-vid="' + mediaId + '"]');
+  if (!video) return;
+  const playBtn = document.getElementById('playbtn-' + mediaId);
+  if (video.paused) {
+    // 先暂停其他视频
+    document.querySelectorAll('video').forEach(v => { if (v !== video) v.pause(); });
+    video.play();
+    if (playBtn) playBtn.style.display = 'none';
+  } else {
+    video.pause();
+    if (playBtn) playBtn.style.display = 'flex';
+  }
+}
+
+function loadQRCodeImage(container, dataUrl) {
+  if (!container) return;
+  const img = new Image();
+  img.onload = function() {
+    const dpr = window.devicePixelRatio || 1;
+    const maxDisplayW = Math.min(window.innerWidth * 0.6, 280);
+    const ratio = img.naturalWidth / img.naturalHeight;
+    let displayW = maxDisplayW;
+    let displayH = maxDisplayW / ratio;
+    if (displayH > maxDisplayW) { displayH = maxDisplayW; displayW = maxDisplayW * ratio; }
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.floor(displayW * dpr);
+    canvas.height = Math.floor(displayH * dpr);
+    canvas.style.width = Math.floor(displayW) + 'px';
+    canvas.style.height = Math.floor(displayH) + 'px';
+    canvas.style.cursor = 'pointer';
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    canvas.onclick = () => showFullscreenQRCode(dataUrl);
+    container.innerHTML = '';
+    container.appendChild(canvas);
+    img.style.display = 'none';
+  };
+  img.src = dataUrl;
+}
+
+function showFullscreenQRCode(dataUrl) {
+  let html = `<div class="p-5 text-center">
+    <div class="text-sm text-gray-500 mb-4">点击收款码可关闭</div>
+    <img src="${dataUrl}" class="max-w-full rounded-lg shadow-lg" style="max-height:70vh;" onclick="closeModal()">
+    <p class="text-sm text-gray-400 mt-4">请使用微信扫码支付</p>
+  </div>`;
+  showModal(html);
+}
+
+function showUploadQRCode(evId) {
+  const input = document.getElementById('qrcode-input');
+  input.value = '';
+  input.onchange = async () => {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const ev = appData.events.find(e => e.id === evId);
+      if (ev) {
+        ev.qrcode = reader.result;
+        saveData(appData);
+        renderEventDetail();
+      }
+    };
+    reader.readAsDataURL(file);
+    input.value = '';
+  };
+  input.click();
+}
+
+function showAddGiftModal(evId) {
+  currentGiftEditId = null;
+  const ev = appData.events.find(e => e.id === evId);
+  let html = `<div class="p-5">
+    <h3 class="text-xl font-bold text-center mb-5">添加礼金</h3>
+    <div class="space-y-4">
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">姓名</label>
+        <input id="gift-name" type="text" placeholder="送礼人姓名" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-red-400 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">金额（元）</label>
+        <input id="gift-amount" type="number" placeholder="输入金额" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-red-400 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">住地</label>
+        <input id="gift-address" type="text" placeholder="如：北京朝阳区" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-red-400 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">手机</label>
+        <input id="gift-phone" type="tel" placeholder="选填" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-red-400 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">备注</label>
+        <div class="flex gap-2 mb-2">
+          <input id="gift-remark-input" type="text" placeholder="点击下方标签或输入自定义备注" class="flex-1 border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-red-400 outline-none">
+          <button type="button" onclick="undoLastRemarkTag('gift-remark-input')" class="shrink-0 border-2 border-gray-200 rounded-lg px-3 text-sm text-gray-400 active:bg-gray-100">撤销</button>
+        </div>
+        <div class="flex flex-wrap gap-2" id="gift-remark-tags">`;
+  appData.remarkOptions.forEach((opt, i) => {
+    html += `<button onclick="selectGiftRemark(this, '${opt}')" class="tag-btn border-2 border-gray-200 rounded-full px-4 py-2 text-sm" data-cat="${opt}">${opt}</button>`;
+  });
+  html += `</div></div>
+      <button onclick="saveGift('${evId}')" class="w-full ${ev.type==='red'?'bg-red-500':'bg-gray-600'} text-white rounded-xl py-3 text-lg font-bold mt-2">保存</button>
+    </div>
+  </div>`;
+  showModal(html);
+}
+
+// 点击关系标签：追加填入备注输入框（如输入"父亲"后点"同事"→"父亲同事"）
+var remarkTagHistory = {};
+function appendRemarkTag(inputId, cat) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  const cur = input.value.trim();
+  if (!cur) input.value = cat;
+  else if (!cur.endsWith(cat)) input.value = cur + cat;
+  else return;
+  if (!remarkTagHistory[inputId]) remarkTagHistory[inputId] = [];
+  remarkTagHistory[inputId].push(cur);
+  input.focus();
+}
+function undoLastRemarkTag(inputId) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  const stack = remarkTagHistory[inputId];
+  if (!stack || stack.length === 0) return;
+  input.value = stack.pop();
+  input.focus();
+}
+
+function selectGiftRemark(btn, cat) {
+  appendRemarkTag('gift-remark-input', cat);
+}
+
+function getSelectedGiftRemark() {
+  const input = document.getElementById('gift-remark-input');
+  if (input && input.value.trim()) return input.value.trim();
+  const sel = document.querySelector('#gift-remark-tags .selected');
+  return sel ? sel.dataset.cat : '';
+}
+
+function saveGift(evId) {
+  try {
+    const name = document.getElementById('gift-name').value.trim();
+    const amount = parseFloat(document.getElementById('gift-amount').value);
+    const address = document.getElementById('gift-address').value.trim();
+    const phone = document.getElementById('gift-phone').value.trim();
+    const remark = getSelectedGiftRemark();
+    if (!name) { alert('请输入姓名'); return; }
+    if (!amount || amount <= 0) { alert('请输入有效的金额'); return; }
+    
+    if (currentGiftEditId) {
+      const g = appData.gifts.find(x => x.id === currentGiftEditId);
+      if (g) {
+        g.name = name; g.amount = amount; g.address = address; g.phone = phone; g.remark = remark;
+      }
+    } else {
+      appData.gifts.push({
+        id: genId('gift'), eventId: evId, name, amount, address, phone, remark,
+        createdAt: Date.now(), fromGuest: false
+      });
+    }
+    saveData(appData);
+    closeModal();
+    if (document.getElementById('page-event-detail').classList.contains('active')) renderEventDetail();
+    if (document.getElementById('page-search').classList.contains('active')) doSearch();
+    if (document.getElementById('page-stats').classList.contains('active')) renderStats();
+  } catch(e) {
+    console.error('saveGift error:', e);
+    alert('保存失败：' + e.message);
+  }
+}
+
+function showEditGiftModal(giftId) {
+  const g = appData.gifts.find(x => x.id === giftId);
+  if (!g) return;
+  const ev = appData.events.find(e => e.id === g.eventId);
+  currentGiftEditId = giftId;
+  let html = `<div class="p-5">
+    <h3 class="text-xl font-bold text-center mb-5">编辑礼金</h3>
+    <div class="space-y-4">
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">姓名</label>
+        <input id="gift-name" type="text" value="${escapeHtml(g.name)}" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-red-400 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">金额（元）</label>
+        <input id="gift-amount" type="number" value="${g.amount}" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-red-400 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">住地</label>
+        <input id="gift-address" type="text" value="${escapeHtml(g.address || '')}" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-red-400 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">手机</label>
+        <input id="gift-phone" type="tel" value="${escapeHtml(g.phone || '')}" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-red-400 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">备注</label>
+        <div class="flex gap-2 mb-2">
+          <input id="gift-remark-input" type="text" value="${escapeHtml(g.remark || '')}" placeholder="点击下方标签或输入自定义备注" class="flex-1 border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-red-400 outline-none">
+          <button type="button" onclick="undoLastRemarkTag('gift-remark-input')" class="shrink-0 border-2 border-gray-200 rounded-lg px-3 text-sm text-gray-400 active:bg-gray-100">撤销</button>
+        </div>
+        <div class="flex flex-wrap gap-2" id="gift-remark-tags">`;
+  appData.remarkOptions.forEach((opt) => {
+    html += `<button onclick="selectGiftRemark(this, '${opt}')" class="tag-btn border-2 border-gray-200 rounded-full px-4 py-2 text-sm" data-cat="${opt}">${opt}</button>`;
+  });
+  html += `</div></div>
+      <button onclick="saveGift('${g.eventId}')" class="w-full ${ev.type==='red'?'bg-red-500':'bg-gray-600'} text-white rounded-xl py-3 text-lg font-bold mt-2">保存</button>
+      <button onclick="deleteGift()" class="w-full bg-red-50 text-red-500 rounded-xl py-3 text-lg font-bold mt-2">删除</button>
+    </div>
+  </div>`;
+  showModal(html);
+}
+
+function deleteGift() {
+  if (!confirm('确定删除此礼金记录？')) return;
+  if (currentGiftEditId) {
+    appData.gifts = appData.gifts.filter(g => g.id !== currentGiftEditId);
+    saveData(appData);
+    closeModal();
+    if (document.getElementById('page-event-detail').classList.contains('active')) renderEventDetail();
+    if (document.getElementById('page-search').classList.contains('active')) doSearch();
+    if (document.getElementById('page-stats').classList.contains('active')) renderStats();
+  }
+}
+
+function deleteGiftById(giftId) {
+  if (!confirm('确定删除此礼金记录？')) return;
+  appData.gifts = appData.gifts.filter(g => g.id !== giftId);
+  saveData(appData);
+  if (document.getElementById('page-event-detail').classList.contains('active')) renderEventDetail();
+  if (document.getElementById('page-search').classList.contains('active')) doSearch();
+  if (document.getElementById('page-stats').classList.contains('active')) renderStats();
+}
+
+// 中文大写数字转阿拉伯数字
+function chineseNumberToArabic(chinese) {
+  const cnNums = {
+    '零': 0, '壹': 1, '一': 1, '贰': 2, '二': 2, '两': 2, '叁': 3, '三': 3,
+    '肆': 4, '四': 4, '伍': 5, '五': 5, '陆': 6, '六': 6, '柒': 7, '七': 7,
+    '捌': 8, '八': 8, '玖': 9, '九': 9, '拾': 10, '十': 10, '佰': 100, '百': 100,
+    '仟': 1000, '千': 1000, '万': 10000
+  };
+  
+  if (!chinese) return 0;
+  
+  // 先尝试直接作为纯数字解析
+  const pureNum = parseFloat(chinese);
+  if (!isNaN(pureNum) && pureNum > 0) return pureNum;
+  
+  let result = 0;
+  let section = 0;
+  let number = 0;
+  let secUnit = false;
+  
+  for (let i = 0; i < chinese.length; i++) {
+    const char = chinese[i];
+    const num = cnNums[char];
+    
+    if (typeof num !== 'undefined') {
+      if (num >= 10000) {
+        section = (section + number) * num;
+        result += section;
+        section = 0;
+        number = 0;
+        secUnit = true;
+      } else if (num >= 10) {
+        if (number === 0) number = 1;
+        section += number * num;
+        number = 0;
+        secUnit = true;
+      } else {
+        number = num;
+        secUnit = false;
+      }
+    }
+  }
+  
+  result += section + number;
+  return result > 0 ? result : 0;
+}
+
+// 判断字符串是否主要是中文大写数字金额
+function isChineseAmount(str) {
+  const cnAmountChars = /[壹贰叁肆伍陆柒捌玖拾佰仟万亿零]/;
+  return cnAmountChars.test(str);
+}
+
+// ===================== 礼金簿表格解析（增强版） =====================
+const SCAN_HEADER_WORDS = ['姓名','名字','金额','礼金','礼簿','序号','编号','备注','住址','住地','地址','电话','手机','签名','登记','迎宾','流水','经手','日期'];
+const SCAN_UNIT_WORDS = ['元','圆','整','正','人民币','块','毛','角','分'];
+const SCAN_CN_AMOUNT_RE = /^(?:[壹贰叁肆伍陆柒捌玖零一二三四五六七八九两]?[拾佰仟万亿])+[元圆整正]?$/;
+const SCAN_ONLY_NAME_RE = /^(?:\d{1,3}\s*)?[\u4e00-\u9fa5]{1,8}$/;
+const SCAN_ONLY_NUM_RE = /^\d{1,7}(?:\.\d{1,2})?$/;
+
+// 全角数字转半角、常见分隔符归一化
+function scanNormalizeText(text) {
+  const merged = text
+    .replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
+    .replace(/[｜|·•]/g, ' ');
+  // 逐行合并 OCR 在中文/数字间误插的空格（避免跨行误合并）："张 三"→"张三"，"5 0 0"→"500"
+  return merged.split('\n').map(line =>
+    line
+      .replace(/([\u4e00-\u9fa5])[ \t]+([\u4e00-\u9fa5])/g, '$1$2')
+      .replace(/(\d[ \t]+){2,}\d/g, m => m.replace(/[ \t]+/g, ''))
+  ).join('\n');
+}
+
+// 是否表头/合计行（应跳过）
+function scanIsHeaderLine(line) {
+  if (/合计|总计|共计|余额/.test(line)) return true;
+  if (!/姓名|金额|礼金|序号|编号|签名|备注|住址|电话/.test(line)) return false;
+  const bigNums = (line.match(/\d{2,}/g) || []).map(Number).filter(n => n >= 50);
+  return bigNums.length === 0;
+}
+
+function scanIsHeaderWord(w) {
+  if (!w || w.length > 3) return false;
+  return SCAN_HEADER_WORDS.some(h => w === h || h.includes(w));
+}
+
+// 从中文串分离姓名与备注（如"张三亲戚"→姓名张三、备注亲戚）
+function scanSplitNameRemark(cn, remarkDict) {
+  for (const r of remarkDict) {
+    if (cn.length > r.length && cn.endsWith(r)) {
+      return { name: cn.slice(0, -r.length), remark: r };
+    }
+  }
+  return { name: cn, remark: '' };
+}
+
+// 解析所有行 → 记录数组
+// 支持：表头/合计行过滤、行首序号剥离、一行多条记录、中文大写金额（伍佰→500）、
+//       跨行配对（名字行+数字行）、分栏配对（连续名字行+连续数字行）
+function scanParseGiftLines(rawLines) {
+  const results = [];
+  const remarkDict = [...new Set([...(appData.remarkOptions || []), '亲戚','朋友','同学','同事','本家','外家','邻居','其他','家人','战友','老乡'])].sort((a, b) => b.length - a.length);
+
+  const consumed = new Set();
+
+  // —— 逐行解析（同行的姓名+金额/中文大写金额/备注）——
+  for (let i = 0; i < rawLines.length; i++) {
+    const line = rawLines[i];
+    if (!/[\u4e00-\u9fa5]/.test(line) && !/\d/.test(line)) continue;
+    if (scanIsHeaderLine(line)) continue;
+
+    // 去掉日期、行首序号（如 "12 张三" "12、张三" "1.张三"）；开头数字≤50视为序号剥离，≥50视为金额保留
+    let s = line.replace(/(?:19|20)\d{2}\s*[年.\-/]\s*\d{1,2}\s*[月.\-/]\s*\d{1,2}\s*日?/g, ' ')
+                .replace(/(?:19|20)\d{2}\s*年/g, ' ')
+                .replace(/^\s*(\d{1,3})\s*[、.．,，:：)）]?\s*/, (m, num) => (parseInt(num, 10) <= 50 ? '' : m));
+
+    // 分词：中文串 / 数字串
+    const tokens = [];
+    const re = /([\u4e00-\u9fa5]+)|(\d+(?:\.\d{1,2})?)/g;
+    let m;
+    while ((m = re.exec(s)) !== null) {
+      tokens.push(m[1] ? { t: 'cn', v: m[1] } : { t: 'num', v: m[2] });
+    }
+
+    const linePairs = [];
+    let pendingName = null;
+    let pendingAmount = null;
+
+    for (const tk of tokens) {
+      if (tk.t === 'cn') {
+        if (scanIsHeaderWord(tk.v) || SCAN_UNIT_WORDS.includes(tk.v)) continue;
+        // 中文大写金额（如"伍佰"）→ 配给上一个名字
+        if (pendingName && SCAN_CN_AMOUNT_RE.test(tk.v)) {
+          const val = chineseNumberToArabic(tk.v);
+          if (val >= 1 && val <= 200000) {
+            linePairs.push({ name: pendingName.name, amount: val, remark: pendingName.remark || '' });
+            pendingName = null;
+            continue;
+          }
+        }
+        // 备注词：跟在名字后（张三 亲戚 500）或跟在金额后（张三 500 亲戚）
+        if (remarkDict.includes(tk.v)) {
+          if (pendingName && !pendingName.remark) { pendingName.remark = tk.v; continue; }
+          if (!pendingName && linePairs.length && !linePairs[linePairs.length - 1].remark) {
+            linePairs[linePairs.length - 1].remark = tk.v;
+            continue;
+          }
+        }
+        // 新名字
+        const sr = scanSplitNameRemark(tk.v, remarkDict);
+        if (!sr.name || scanIsHeaderWord(sr.name) || sr.name.length > 8) { pendingName = null; continue; }
+        if (pendingAmount != null) {
+          // 金额在前、姓名在后（如"500 张三"）→ 直接配对
+          linePairs.push({ name: sr.name, amount: pendingAmount, remark: sr.remark || '' });
+          pendingAmount = null;
+          continue;
+        }
+        pendingName = sr;
+      } else {
+        const digits = tk.v.replace('.', '');
+        const val = parseFloat(tk.v);
+        if (digits.length >= 8) continue; // 手机号等长数字
+        if (pendingName && val >= 1 && val <= 200000) {
+          linePairs.push({ name: pendingName.name, amount: val, remark: pendingName.remark || '' });
+          pendingName = null;
+        } else if (pendingAmount == null && val >= 1 && val <= 200000) {
+          // 暂存金额，等待后续出现的姓名（处理"500 张三"这类金额在前的写法）
+          pendingAmount = val;
+        }
+      }
+    }
+
+    if (linePairs.length > 0) {
+      linePairs.forEach(p => results.push({ name: p.name, amount: p.amount, remark: p.remark, rawLine: line }));
+      consumed.add(i);
+    }
+  }
+
+
+  // 分栏配对（优先执行）：连续≥2个纯名字行 + 数量相同的连续纯数字行（左右分栏表格常见）
+  let i2 = 0;
+  while (i2 < rawLines.length) {
+    if (!SCAN_ONLY_NAME_RE.test(rawLines[i2].trim()) || !/[\u4e00-\u9fa5]/.test(rawLines[i2])) { i2++; continue; }
+    let j = i2;
+    const nameLines = [];
+    while (j < rawLines.length && SCAN_ONLY_NAME_RE.test(rawLines[j].trim()) && /[\u4e00-\u9fa5]/.test(rawLines[j])) { nameLines.push(rawLines[j].trim()); j++; }
+    let k = j;
+    const numLines = [];
+    while (k < rawLines.length && SCAN_ONLY_NUM_RE.test(rawLines[k].trim())) { numLines.push(rawLines[k].trim()); k++; }
+    if (nameLines.length >= 2 && nameLines.length === numLines.length) {
+      nameLines.forEach((nl, idx) => {
+        const val = parseFloat(numLines[idx]);
+        if (val >= 1 && val <= 200000) {
+          const sr = scanSplitNameRemark(nl.replace(/^\d{1,3}\s*/, ''), remarkDict);
+          if (sr.name && !scanIsHeaderWord(sr.name) && sr.name.length <= 8) {
+            results.push({ name: sr.name, amount: val, remark: sr.remark || '', rawLine: nl + ' ' + numLines[idx] });
+          }
+        }
+      });
+      for (let x = i2; x < k; x++) consumed.add(x);
+    }
+    i2 = j;
+  }
+
+  // 跨行配对：纯名字行 + 紧随其后的纯数字行（跳过分栏配对已消费的行）
+  for (let i = 0; i < rawLines.length - 1; i++) {
+    if (consumed.has(i) || consumed.has(i + 1)) continue;
+    const a = rawLines[i].trim(), b = rawLines[i + 1].trim();
+    if (SCAN_ONLY_NAME_RE.test(a) && SCAN_ONLY_NUM_RE.test(b) && /[\u4e00-\u9fa5]/.test(a)) {
+      const val = parseFloat(b);
+      if (val >= 1 && val <= 200000) {
+        const sr = scanSplitNameRemark(a.replace(/^\d{1,3}\s*/, ''), remarkDict);
+        if (sr.name && !scanIsHeaderWord(sr.name) && sr.name.length <= 8) {
+          results.push({ name: sr.name, amount: val, remark: sr.remark || '', rawLine: a + ' ' + b });
+          consumed.add(i); consumed.add(i + 1);
+        }
+      }
+    }
+  }
+
+  // —— 末轮：未被配对消费的行 → 产出"缺字段"半成品（自动填入，用户补全）——
+  for (let i = 0; i < rawLines.length; i++) {
+    if (consumed.has(i)) continue;
+    let line = rawLines[i].trim();
+    if (scanIsHeaderLine(line)) continue;
+    const cnParts = (line.match(/[\u4e00-\u9fa5]{1,8}/g) || [])
+      .filter(w => !scanIsHeaderWord(w) && !SCAN_UNIT_WORDS.includes(w) && !remarkDict.includes(w));
+    const numParts = (line.match(/\d{1,6}/g) || []).map(Number).filter(n => n >= 20 && n <= 200000);
+    if (cnParts.length && !numParts.length) {
+      // 取最像"名字"的一段：2-4字优先
+      const name = cnParts.slice().sort((a, b) => {
+        const sa = (a.length >= 2 && a.length <= 4) ? 0 : 1;
+        const sb = (b.length >= 2 && b.length <= 4) ? 0 : 1;
+        return sa - sb;
+      })[0];
+      if (name && name.length >= 2) results.push({ name, amount: '', remark: '', rawLine: line, partial: true });
+    } else if (numParts.length && !cnParts.length) {
+      numParts.slice(0, 2).forEach(n => results.push({ name: '', amount: n, remark: '', rawLine: line, partial: true }));
+    }
+  }
+
+  return results;
+}
+
+// 拍照识别礼金簿 - 从相机
+function scanGiftBookFromCamera(evId) {
+  doOCRScan(evId, true);
+}
+
+// 拍照识别礼金簿 - 从相册
+function scanGiftBookFromAlbum(evId) {
+  doOCRScan(evId, false);
+}
+
+// 图像增强预处理：放大→灰度→对比度拉伸→锐化→二值化，提升表格/手写识别率
+function preprocessForOCR(img) {
+  let targetW = 2400;
+  if (img.width < 1000) targetW = 2600;
+  else if (img.width < 2000) targetW = 2400;
+  else if (img.width > 3200) targetW = 2800;
+  const scale = targetW / img.width;
+  const w = Math.max(1, Math.round(img.width * scale));
+  const h = Math.max(1, Math.round(img.height * scale));
+
+  const drawTo = (smooth) => {
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const x = c.getContext('2d');
+    x.imageSmoothingEnabled = smooth;
+    x.imageSmoothingQuality = 'high';
+    x.drawImage(img, 0, 0, w, h);
+    return c;
+  };
+  const gray = drawTo(true);
+  const gctx = gray.getContext('2d');
+  let id = gctx.getImageData(0, 0, w, h);
+  let d = id.data;
+  let mn = 255, mx = 0;
+  for (let p = 0; p < d.length; p += 4) {
+    const g = 0.299 * d[p] + 0.587 * d[p + 1] + 0.114 * d[p + 2];
+    d[p] = d[p + 1] = d[p + 2] = g;
+    if (g < mn) mn = g; if (g > mx) mx = g;
+  }
+  if (mx > mn) {
+    const k = 255 / (mx - mn);
+    for (let p = 0; p < d.length; p += 4) { const v = Math.min(255, Math.max(0, (d[p] - mn) * k)); d[p] = d[p + 1] = d[p + 2] = v; }
+  }
+  try { applySharpen(gctx, w, h); } catch (e) { console.warn('sharpen fail', e); }
+  gctx.putImageData(id, 0, 0);
+
+  // Otsu 二值化版
+  const bin = document.createElement('canvas');
+  bin.width = w; bin.height = h;
+  const bctx = bin.getContext('2d');
+  bctx.drawImage(gray, 0, 0);
+  const bid = bctx.getImageData(0, 0, w, h);
+  const bd = bid.data;
+  const hist = new Array(256).fill(0);
+  for (let p = 0; p < bd.length; p += 4) hist[bd[p]]++;
+  let total = w * h, sum = 0;
+  for (let i = 0; i < 256; i++) sum += i * hist[i];
+  let sumB = 0, wB = 0, mxv = 0, th = 127;
+  for (let i = 0; i < 256; i++) {
+    wB += hist[i]; if (wB === 0) continue;
+    const wF = total - wB; if (wF === 0) break;
+    sumB += i * hist[i];
+    const mB = sumB / wB, mF = (sum - sumB) / wF;
+    const bet = wB * wF * (mB - mF) * (mB - mF);
+    if (bet > mxv) { mxv = bet; th = i; }
+  }
+  for (let p = 0; p < bd.length; p += 4) { const v = bd[p] > th ? 255 : 0; bd[p] = bd[p + 1] = bd[p + 2] = v; }
+  bctx.putImageData(bid, 0, 0);
+
+  return { gray, bin };
+}
+
+function applySharpen(ctx, w, h) {
+  const src = ctx.getImageData(0, 0, w, h);
+  const s = src.data;
+  const out = ctx.createImageData(w, h);
+  const o = out.data;
+  const idx = (x, y) => (y * w + x) * 4;
+  const kw = [0, -1, 0, -1, 5, -1, 0, -1, 0];
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      let r = 0, g = 0, b = 0, k = 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const i = idx(x + dx, y + dy);
+        r += s[i] * kw[k]; g += s[i + 1] * kw[k]; b += s[i + 2] * kw[k]; k++;
+      }
+      const i = idx(x, y);
+      o[i] = Math.min(255, Math.max(0, r));
+      o[i + 1] = Math.min(255, Math.max(0, g));
+      o[i + 2] = Math.min(255, Math.max(0, b));
+      o[i + 3] = 255;
+    }
+  }
+  for (let x = 0; x < w; x++) for (let y = 0; y < h; y++) {
+    if (x === 0 || y === 0 || x === w - 1 || y === h - 1) { const i = idx(x, y); o[i] = o[i + 1] = o[i + 2] = s[i]; o[i + 3] = 255; }
+  }
+  ctx.putImageData(out, 0, 0);
+}
+
+// 缓存 OCR worker（中文+英文），支持多 PSM 模式切换
+let _ocrWorker = null;
+let _ocrWorkerInit = null;
+function getOCRWorker(logger) {
+  if (_ocrWorker) return Promise.resolve(_ocrWorker);
+  if (!_ocrWorkerInit) {
+    _ocrWorkerInit = Tesseract.createWorker('chi_sim+eng', 1, {
+      logger: logger || (() => {}),
+      errorHandler: e => console.warn('OCR warn:', e)
+    }).then(w => { _ocrWorker = w; return w; })
+      .catch(e => { _ocrWorkerInit = null; throw e; });
+  }
+  return _ocrWorkerInit;
+}
+
+// 去重：完整记录按"姓名_金额"去重；半成品按姓名/金额去重（避免多 PSM 模式产生 6 倍重复）；限制总量避免刷屏
+function scanDedupe(results, cap = 150) {
+  const uniq = [];
+  const seenFull = new Set();
+  const seenName = new Set();
+  const seenAmt = new Set();
+  results.forEach(r => {
+    if (r.name && r.amount) {
+      const k = r.name + '_' + r.amount;
+      if (seenFull.has(k)) return;
+      seenFull.add(k);
+      uniq.push(r);
+    } else if (r.name) {
+      if (seenName.has(r.name)) return;
+      seenName.add(r.name);
+      uniq.push(r);
+    } else if (r.amount) {
+      if (seenAmt.has(r.amount)) return;
+      seenAmt.add(r.amount);
+      uniq.push(r);
+    } else {
+      uniq.push(r);
+    }
+  });
+  return uniq.slice(0, cap);
+}
+
+// 从原始 OCR 文本构建候选行：
+// 1) 优先用结构化解析；2) 若解析为 0，退化为"逐行尽量抽取姓名/金额"，保证始终有可勾选的行
+function scanRowsFromRaw(text) {
+  const rawLines = scanNormalizeText(text).split(/\n|\r/).map(l => l.trim()).filter(l => l.length > 0);
+  let rows = scanParseGiftLines(rawLines);
+  if (rows.length === 0) {
+    rawLines.forEach(line => {
+      if (scanIsHeaderLine(line)) return;
+      // 合并 OCR 在中文/数字间插入的空格（"张 三"→"张三"，"5 0 0"→"500"）
+      const merged = line
+        .replace(/([\u4e00-\u9fa5])\s+([\u4e00-\u9fa5])/g, '$1$2')
+        .replace(/(\d\s+){2,}\d/g, m => m.replace(/\s+/g, ''));
+      const cn = (merged.match(/[\u4e00-\u9fa5]{1,8}/g) || [])
+        .filter(w => !scanIsHeaderWord(w) && !SCAN_UNIT_WORDS.includes(w) && !remarkDict.includes(w));
+      const nums = (merged.match(/\d{1,6}/g) || []).map(Number).filter(n => n >= 1 && n <= 200000);
+      const name = cn.length
+        ? cn.slice().sort((a, b) => ((a.length >= 2 && a.length <= 4) ? 0 : 1) - ((b.length >= 2 && b.length <= 4) ? 0 : 1))[0]
+        : '';
+      const amount = nums.length ? nums[0] : '';
+      if (name || amount) {
+        rows.push({ name: name || '', amount: amount || '', remark: '', rawLine: line, partial: true });
+      }
+    });
+  }
+  return scanDedupe(rows);
+}
+
+// 用任意文本重新解析（兜底：粘贴识别原文手动修正）
+function rescanFromText(textareaId, evId) {
+  const ta = document.getElementById(textareaId);
+  if (!ta) return;
+  const rawLines = scanNormalizeText(ta.value).split(/\n|\r/).map(l => l.trim()).filter(l => l.length > 0);
+  const results = scanParseGiftLines(rawLines);
+  currentScanEditResults = scanDedupe(results).map(r => ({ name: r.name || '', amount: r.amount || '', remark: r.remark || '' }));
+  renderScanBatchTable(evId);
+}
+
+// 通用OCR识别流程
+async function doOCRScan(evId, fromCamera) {
+  // 检查Tesseract是否可用
+  if (typeof Tesseract === 'undefined') {
+    alert('OCR识别库加载失败，请检查网络连接后重试');
+    return;
+  }
+
+  const input = document.getElementById('ocr-input');
+  input.value = '';
+  
+  // 一次性设置好change处理器
+  input.onchange = async () => {
+    const file = input.files[0];
+    if (!file) return;
+    
+    if (!file.type.startsWith('image/')) {
+      alert('请选择图片文件');
+      return;
+    }
+    
+    document.getElementById('ocr-loading').classList.add('active');
+    document.getElementById('ocr-progress').textContent = '正在处理图片...';
+    document.getElementById('ocr-bar').style.width = '5%';
+    
+    try {
+      const img = new Image();
+      const blobUrl = URL.createObjectURL(file);
+      img.src = blobUrl;
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+
+      // 增强预处理：放大 + 灰度 + 对比度 + 锐化 + 二值化，提升表格/手写识别率
+      const proc = preprocessForOCR(img);
+      URL.revokeObjectURL(blobUrl);
+      const canvas = proc.gray;     // 灰度增强版
+      const binCanvas = proc.bin;  // 二值化版
+
+      document.getElementById('ocr-progress').textContent = '正在加载识别引擎（首次较慢）...';
+      document.getElementById('ocr-bar').style.width = '10%';
+
+      const ocrLogger = m => {
+        console.log('OCR:', m);
+        const st = m.status || '';
+        if (st.indexOf('recogniz') >= 0) {
+          const pct = Math.min(95, Math.round((m.progress || 0) * 100));
+          document.getElementById('ocr-progress').textContent = `正在识别文字 ${pct}%...`;
+          document.getElementById('ocr-bar').style.width = pct + '%';
+        } else if (st.indexOf('loading') >= 0 || st.indexOf('initial') >= 0) {
+          document.getElementById('ocr-progress').textContent = '正在下载中文识别库...';
+        }
+      };
+
+      // 多 PSM 模式 + 两种预处理图，合并所有识别结果，最大化召回率
+      const texts = [];
+      try {
+        const worker = await getOCRWorker(ocrLogger);
+        const psms = [6, 4, 3]; // 6:整块文本 4:单列名册 3:自动
+        const imgs = [canvas, binCanvas];
+        const seenText = new Set();
+        for (const psm of psms) {
+          for (const cv of imgs) {
+            try {
+              await worker.setParameters({ tessedit_pageseg_mode: psm });
+              const r = await worker.recognize(cv);
+              const t = (r.data.text || '').trim();
+              if (t && !seenText.has(t)) { seenText.add(t); texts.push(t); }
+            } catch (e) { console.warn('识别失败 psm', psm, e); }
+          }
+        }
+      } catch (e) {
+        console.warn('worker 失败，退回旧 API', e);
+        try {
+          const r1 = await Tesseract.recognize(canvas, 'chi_sim+eng', { logger: ocrLogger, errorHandler: x => console.warn(x) });
+          texts.push(r1.data.text || '');
+        } catch (e2) { console.warn('旧 API 也失败', e2); }
+      }
+
+      const text = texts.join('\n').trim();
+      window._lastScanRaw = text;
+
+      document.getElementById('ocr-progress').textContent = '正在解析记录...';
+      document.getElementById('ocr-bar').style.width = '98%';
+
+      // 调试输出
+      console.log('=== OCR原始文本 ===');
+      console.log(text);
+      console.log('===================');
+
+      // 构建候选行：结构化解析优先，失败则退化为逐行抽取，确保始终有可勾选的行
+      const rows = scanRowsFromRaw(text);
+
+      document.getElementById('ocr-bar').style.width = '100%';
+
+      console.log('识别结果：', rows);
+
+      // 始终进入批量勾选表格（带勾选框 + 可编辑），无记录时提示用原文重解析/手动添加
+      window._scanResults = rows;
+      window._scanEventId = evId;
+      showScanEditModal(rows, evId);
+      
+
+    } catch(e) {
+      console.error('OCR识别失败:', e);
+      alert('识别失败：' + (e.message || '未知错误') + '\n\n建议：\n1. 检查网络连接（需下载中文识别库约10MB）\n2. 换一张清晰的照片重试\n3. 可手动添加记录');
+    } finally {
+      document.getElementById('ocr-loading').classList.remove('active');
+      input.value = '';
+    }
+  };
+  
+  // 设置capture属性并触发点击
+  if (fromCamera) {
+    input.setAttribute('capture', 'environment');
+  } else {
+    input.removeAttribute('capture');
+  }
+  input.click();
+}
+
+// 显示OCR识别结果 - 批量表格（自动填入，一键导入）
+let currentScanEditResults = [];
+
+function showScanEditModal(results, evId) {
+  currentScanEditResults = results.map(r => ({ name: r.name || '', amount: r.amount || '', remark: r.remark || '' }));
+  window._scanEventId = evId;
+  renderScanBatchTable(evId);
+}
+
+function renderScanBatchTable(evId) {
+  const total = currentScanEditResults.length;
+  const partialCount = currentScanEditResults.filter(r => !r.name || !r.amount).length;
+  const rawText = escapeHtml(window._lastScanRaw || '');
+  let html = `<div class="p-4">
+    <h3 class="text-xl font-bold text-center mb-1">识别结果 · 共 ${total} 条</h3>
+    <p class="text-center text-xs text-gray-400 mb-2">已自动填入，可直接修改；${partialCount > 0 ? `其中 <span class="text-orange-500 font-bold">${partialCount}</span> 条信息不全（缺姓名或金额），请补全后再导入；` : ''}勾选后点底部按钮导入，取消勾选可跳过</p>
+    ${total === 0 ? `<div class="bg-yellow-50 rounded-xl p-3 mb-3 text-xs text-yellow-700">未从图片中识别到任何文字行。可：① 在下方"识别原文"框粘贴/修正文字后点"重新解析"；② 点"+ 手动添加一行"逐条录入。</div>` : `<div class="flex items-center gap-2 mb-2">
+        <button onclick="toggleScanAll(true)" class="flex-1 bg-gray-100 text-gray-600 rounded-lg py-1.5 text-xs font-bold">全选</button>
+        <button onclick="toggleScanAll(false)" class="flex-1 bg-gray-100 text-gray-600 rounded-lg py-1.5 text-xs font-bold">取消全选</button>
+      </div>`}
+    <datalist id="scan-remark-options">${appData.remarkOptions.map(o => `<option value="${escapeHtml(o)}">`).join('')}</datalist>
+    <details class="mb-3 text-xs text-gray-500">
+      <summary class="cursor-pointer select-none">识别原文 / 手动修正（识别不准可在此改对后重新解析）</summary>
+      <textarea id="scan-paste-batch" class="w-full border border-gray-200 rounded-lg p-2 h-28 mt-1 text-xs">${rawText}</textarea>
+      <button onclick="rescanFromText('scan-paste-batch', '${evId}')" class="mt-1 w-full bg-gray-200 text-gray-700 rounded-lg py-2 text-sm font-bold">用这段文字重新解析</button>
+    </details>
+    <div class="space-y-2" style="max-height:50vh; overflow-y:auto;">`;
+  currentScanEditResults.forEach((r, i) => {
+    const isPartial = !r.name || !r.amount;
+    html += `<div class="bg-gray-50 rounded-xl p-3 flex items-start gap-2 ${isPartial ? 'ring-1 ring-orange-300' : ''}">
+      <input type="checkbox" id="scan-chk-${i}" checked class="w-5 h-5 accent-red-500 flex-shrink-0 mt-2">
+      <div class="flex-1 space-y-2">
+        <div class="grid grid-cols-2 gap-2">
+          <input type="text" id="scan-name-${i}" value="${escapeHtml(String(r.name || ''))}" placeholder="姓名" class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-red-400 outline-none">
+          <input type="number" id="scan-amount-${i}" value="${r.amount}" placeholder="金额(元)" class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-red-400 outline-none">
+        </div>
+        <div class="flex flex-wrap gap-1">
+          ${appData.remarkOptions.map(opt => `<button type="button" onclick="appendRemarkTag('scan-remark-${i}', '${escapeHtml(opt)}')" class="bg-white border border-gray-200 rounded-full px-2.5 py-1 text-xs text-gray-600 active:bg-red-50">${escapeHtml(opt)}</button>`).join('')}
+        </div>
+        <input type="text" id="scan-remark-${i}" value="${escapeHtml(r.remark || '')}" list="scan-remark-options" placeholder="备注（点上方标签或输入，如：父亲同事）" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-red-400 outline-none">
+      </div>
+      ${isPartial ? '<span class="text-orange-500 text-xs flex-shrink-0 mt-2">缺</span>' : ''}
+      <button onclick="removeScanRow(${i})" class="text-red-400 text-2xl flex-shrink-0 px-1 leading-none mt-1">×</button>
+    </div>`;
+  });
+  html += `</div>
+    <button onclick="addScanRow()" class="w-full bg-gray-100 text-gray-600 rounded-xl py-2 text-sm font-bold mt-3">+ 手动添加一行</button>
+    <button onclick="importScanRows('${evId}')" class="w-full bg-red-500 text-white rounded-xl py-3 text-lg font-bold mt-2">一键导入全部勾选记录</button>
+    <button onclick="closeModal()" class="w-full bg-gray-100 text-gray-600 rounded-xl py-3 text-lg font-bold mt-2">取消</button>
+  </div>`;
+  showModal(html);
+}
+
+// 全选 / 取消全选勾选框
+function toggleScanAll(checked) {
+  currentScanEditResults.forEach((r, i) => {
+    const chk = document.getElementById('scan-chk-' + i);
+    if (chk) chk.checked = checked;
+  });
+}
+
+function removeScanRow(i) {
+  currentScanEditResults.splice(i, 1);
+  renderScanBatchTable(window._scanEventId);
+}
+
+function addScanRow() {
+  currentScanEditResults.push({ name: '', amount: '', remark: '' });
+  renderScanBatchTable(window._scanEventId);
+}
+
+function importScanRows(evId) {
+  let count = 0;
+  currentScanEditResults.forEach((r, i) => {
+    const chk = document.getElementById('scan-chk-' + i);
+    if (chk && !chk.checked) return;
+    const name = (document.getElementById('scan-name-' + i).value || '').trim();
+    const amount = parseFloat(document.getElementById('scan-amount-' + i).value);
+    const remark = (document.getElementById('scan-remark-' + i).value || '').trim();
+    if (!name || isNaN(amount) || amount <= 0) return;
+    appData.gifts.push({
+      id: genId('gift'), eventId: evId, name, amount,
+      address: '', phone: '', remark,
+      createdAt: Date.now(), fromGuest: false
+    });
+    count++;
+  });
+  if (count === 0) { alert('没有可导入的记录，请检查姓名和金额是否填写正确'); return; }
+  saveData(appData);
+  closeModal();
+  alert(`成功自动导入 ${count} 条礼金记录`);
+  renderEventDetail();
+}
+
+/* ===== 旧逐条编辑向导（已废弃）=====
+let currentScanEditIndex = 0;
+let currentScanEditProcessed = [];
+
+function renderScanEditStep(evId) {
+  const r = currentScanEditResults[currentScanEditIndex];
+  const currentNum = currentScanEditIndex + 1;
+  const totalNum = currentScanEditResults.length;
+  const isLast = currentScanEditIndex === totalNum - 1;
+  
+  let html = `<div class="p-5" style="max-height: 90vh; overflow-y: auto;">
+    <div class="text-center mb-4">
+      <h3 class="text-xl font-bold">核对识别结果</h3>
+      <p class="text-sm text-gray-500 mt-1">第 ${currentNum} / ${totalNum} 条</p>
+      <div class="w-full bg-gray-200 rounded-full h-2 mt-3">
+        <div class="bg-red-500 h-2 rounded-full transition-all" style="width: ${(currentNum / totalNum) * 100}%"></div>
+      </div>
+    </div>
+    <div class="space-y-4">
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">姓名 *</label>
+        <input type="text" id="scan-name" value="${escapeHtml(r.name)}" placeholder="姓名" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 text-base focus:border-red-400 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">金额（元）*</label>
+        <input type="number" id="scan-amount" value="${r.amount}" placeholder="金额" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 text-base focus:border-red-400 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">住地</label>
+        <input type="text" id="scan-address" value="${escapeHtml(r.address || '')}" placeholder="如：本村、北京朝阳区" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 text-base focus:border-red-400 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">手机</label>
+        <input type="tel" id="scan-phone" value="${escapeHtml(r.phone || '')}" placeholder="选填" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 text-base focus:border-red-400 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">备注</label>
+        <input type="text" id="scan-remark" value="${escapeHtml(r.remark || '')}" placeholder="备注" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 text-base focus:border-red-400 outline-none">
+      </div>
+    </div>
+    <div class="space-y-3 mt-6">
+      <button onclick="saveScanStep('${evId}')" class="w-full bg-red-500 text-white rounded-xl py-3 text-lg font-bold">${isLast ? '保存并完成' : '保存本条并继续'}</button>
+      <button onclick="skipScanStep('${evId}')" class="w-full bg-gray-100 text-gray-600 rounded-xl py-3 text-lg font-bold">${isLast ? '跳过并完成' : '跳过本条'}</button>
+    </div>
+  </div>`;
+  
+  showModal(html);
+}
+
+function saveScanStep(evId) {
+  const name = document.getElementById('scan-name').value.trim();
+  const amount = parseFloat(document.getElementById('scan-amount').value);
+  const address = document.getElementById('scan-address').value.trim();
+  const phone = document.getElementById('scan-phone').value.trim();
+  const remark = document.getElementById('scan-remark').value.trim();
+  
+  if (!name || isNaN(amount) || amount <= 0) {
+    alert('请填写姓名和正确的金额');
+    return;
+  }
+  
+  currentScanEditProcessed.push({ name, amount, address, phone, remark });
+  
+  if (currentScanEditIndex >= currentScanEditResults.length - 1) {
+    finalizeScanEdit(evId);
+  } else {
+    currentScanEditIndex++;
+    renderScanEditStep(evId);
+  }
+}
+
+function skipScanStep(evId) {
+  if (currentScanEditIndex >= currentScanEditResults.length - 1) {
+    finalizeScanEdit(evId);
+  } else {
+    currentScanEditIndex++;
+    renderScanEditStep(evId);
+  }
+}
+
+function finalizeScanEdit(evId) {
+  if (currentScanEditProcessed.length === 0) {
+    alert('没有记录可导入');
+    closeModal();
+    return;
+  }
+  
+  currentScanEditProcessed.forEach(r => {
+    appData.gifts.push({
+      id: genId('gift'), eventId: evId,
+      name: r.name, amount: r.amount,
+      address: r.address || '', phone: r.phone || '', remark: r.remark || '',
+      createdAt: Date.now(), fromGuest: false
+    });
+  });
+  
+  saveData(appData);
+  closeModal();
+  alert(`成功导入 ${currentScanEditProcessed.length} 条记录`);
+  renderEventDetail();
+}
+===== 旧向导结束 ===== */
+
+// ===================== 宾客登记 =====================
+function showGuestRegister(evId) {
+  const ev = appData.events.find(e => e.id === evId);
+  if (!ev) return;
+  let html = `<div class="p-5">
+    <h3 class="text-xl font-bold text-center mb-2">${escapeHtml(ev.name)}</h3>
+    <p class="text-center text-sm text-gray-500 mb-5">填写信息后显示收款码</p>
+    <div class="space-y-4">
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">您的姓名 *</label>
+        <input id="guest-name" type="text" placeholder="请输入姓名" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-red-400 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">礼金金额（元）*</label>
+        <input id="guest-amount" type="number" placeholder="请输入金额" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-red-400 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">您的住地</label>
+        <input id="guest-address" type="text" placeholder="如：北京朝阳区" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-red-400 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">您的手机</label>
+        <input id="guest-phone" type="tel" placeholder="选填" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-red-400 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">备注</label>
+        <div class="flex gap-2 mb-2">
+          <input id="guest-remark-input" type="text" placeholder="点击下方标签或输入自定义备注" class="flex-1 border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-red-400 outline-none">
+          <button type="button" onclick="undoLastRemarkTag('guest-remark-input')" class="shrink-0 border-2 border-gray-200 rounded-lg px-3 text-sm text-gray-400 active:bg-gray-100">撤销</button>
+        </div>
+        <div class="flex flex-wrap gap-2" id="guest-remark-tags">`;
+  appData.remarkOptions.forEach((opt, i) => {
+    html += `<button onclick="selectGuestRemark(this, '${opt}')" class="tag-btn border-2 border-gray-200 rounded-full px-4 py-2 text-sm" data-cat="${opt}">${opt}</button>`;
+  });
+  html += `</div></div>
+      <button onclick="submitGuestRegister('${ev.id}')" class="w-full ${ev.type==='red'?'bg-red-500':'bg-gray-600'} text-white rounded-xl py-3 text-lg font-bold mt-2">提交</button>
+    </div>
+  </div>`;
+  showModal(html);
+}
+
+function selectGuestRemark(btn, cat) {
+  appendRemarkTag('guest-remark-input', cat);
+}
+
+function getSelectedGuestRemark() {
+  const input = document.getElementById('guest-remark-input');
+  if (input && input.value.trim()) return input.value.trim();
+  const sel = document.querySelector('#guest-remark-tags .selected');
+  return sel ? sel.dataset.cat : '';
+}
+
+function submitGuestRegister(evId) {
+  try {
+    const name = document.getElementById('guest-name').value.trim();
+    const amount = parseFloat(document.getElementById('guest-amount').value);
+    const address = document.getElementById('guest-address').value.trim();
+    const phone = document.getElementById('guest-phone').value.trim();
+    const remark = getSelectedGuestRemark();
+    if (!name) { alert('请输入姓名'); return; }
+    if (!amount || amount <= 0) { alert('请输入有效的金额'); return; }
+    const ev = appData.events.find(e => e.id === evId);
+    appData.gifts.push({
+      id: genId('gift'), eventId: evId, name, amount, address, phone, remark,
+      createdAt: Date.now(), fromGuest: true
+    });
+    saveData(appData);
+    closeModal();
+    if (ev && ev.qrcode) {
+      showFullscreenQR(ev.qrcode, name, amount);
+    } else {
+      alert('提交成功！');
+    }
+    if (document.getElementById('page-event-detail').classList.contains('active')) renderEventDetail();
+    if (document.getElementById('page-stats').classList.contains('active')) renderStats();
+  } catch(e) {
+    console.error('submitGuestRegister error:', e);
+    alert('提交失败：' + e.message);
+  }
+}
+
+function showFullscreenQR(qrDataUrl, name, amount) {
+  let html = `<div class="p-5 text-center">
+    <h3 class="text-xl font-bold mb-2">感谢您的礼金</h3>
+    <p class="text-gray-500 mb-4">${escapeHtml(name)} · ${formatMoney(amount)}</p>
+    <div class="bg-gray-100 rounded-xl p-4 inline-block">
+      <img src="${qrDataUrl}" class="max-w-full" style="max-height:300px;">
+    </div>
+    <p class="text-sm text-gray-400 mt-4">请使用微信扫码支付</p>
+    <button onclick="closeModal()" class="w-full bg-gray-100 rounded-xl py-3 mt-4 text-gray-600">关闭</button>
+  </div>`;
+  showModal(html);
+}
+
+// ===================== 搜索 =====================
+function doSearch() {
+  const keyword = document.getElementById('search-input').value.trim();
+  const container = document.getElementById('search-results');
+
+  let gifts = [];
+  let sentGifts = [];
+  
+  if (!keyword) {
+    gifts = [...appData.gifts].sort((a, b) => b.createdAt - a.createdAt);
+    sentGifts = [...(appData.sentGifts || [])].sort((a, b) => b.createdAt - a.createdAt);
+    if (gifts.length === 0 && sentGifts.length === 0) {
+      container.innerHTML = `<div class="text-center py-20 text-gray-400">
+        <div class="text-5xl mb-3">📋</div>
+        <p class="text-lg">暂无记录</p>
+        <p class="text-sm mt-2">先创建喜事并添加记录</p>
+      </div>`;
+      return;
+    }
+  } else {
+    gifts = appData.gifts.filter(g => g.name.includes(keyword));
+    sentGifts = (appData.sentGifts || []).filter(g => g.name.includes(keyword));
+  }
+
+  if (gifts.length === 0 && sentGifts.length === 0) {
+    container.innerHTML = `<div class="text-center py-20 text-gray-400">
+      <div class="text-5xl mb-3">🔍</div>
+      <p class="text-lg">未找到「${escapeHtml(keyword)}」的记录</p>
+    </div>`;
+    return;
+  }
+
+  let html = '';
+  let totalAll = 0, totalSent = 0;
+  gifts.forEach(g => totalAll += Number(g.amount));
+  sentGifts.forEach(g => totalSent += Number(g.amount));
+
+  // 送礼记录部分
+  if (sentGifts.length > 0) {
+    html += `<div class="mb-3"><span class="text-sm font-bold text-orange-500 bg-orange-50 rounded-full px-3 py-1">送礼记录</span></div>`;
+    html += `<div class="space-y-3">`;
+    sentGifts.forEach(g => {
+      const isMatched = keyword && g.name.includes(keyword);
+      html += `<div class="bg-white rounded-2xl p-4 shadow-sm ${isMatched ? 'border-2 border-yellow-400 bg-yellow-50' : ''}">
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-lg ${isMatched ? 'text-red-600' : 'text-gray-800'}">${escapeHtml(g.name)}</span>
+            ${g.remark ? `<span class="text-xs bg-orange-50 text-orange-500 rounded-full px-2 py-0.5">${escapeHtml(g.remark)}</span>` : ''}
+          </div>
+          <span class="text-lg font-bold text-orange-500">${formatMoney(g.amount)}</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2 text-xs text-gray-400">
+            <span>${formatDate(g.date || g.createdAt)}</span>
+            ${g.phone ? `<span>· 📱 ${escapeHtml(g.phone)}</span>` : ''}
+          </div>
+          <span class="text-xs text-gray-400">送礼</span>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  // 收礼记录部分
+  if (gifts.length > 0) {
+    if (sentGifts.length > 0) html += `<div class="my-4"><span class="text-sm font-bold text-blue-500 bg-blue-50 rounded-full px-3 py-1">收礼记录</span></div>`;
+    html += `<div class="space-y-3">`;
+    gifts.forEach(g => {
+      const ev = appData.events.find(e => e.id === g.eventId);
+      const isMatched = keyword && g.name.includes(keyword);
+      html += `<div class="bg-white rounded-2xl p-4 shadow-sm ${isMatched ? 'border-2 border-yellow-400 bg-yellow-50' : ''}">
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-lg ${isMatched ? 'text-red-600' : 'text-gray-800'}">${escapeHtml(g.name)}</span>
+            ${g.remark ? `<span class="text-xs ${ev && ev.type==='red'?'bg-red-50 text-red-500':'bg-gray-100 text-gray-500'} rounded-full px-2 py-0.5">${escapeHtml(g.remark)}</span>` : ''}
+            ${g.fromGuest ? `<span class="text-xs bg-green-50 text-green-500 rounded-full px-2 py-0.5">宾客</span>` : ''}
+          </div>
+          <span class="text-lg font-bold ${ev && ev.type==='red'?'text-red-500':'text-gray-600'}">${formatMoney(g.amount)}</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2 text-xs text-gray-400">
+            ${ev ? `<span class="${ev.type==='red'?'text-red-400':'text-gray-400'}">${ev.type==='red'?'红':'白'}事 · ${escapeHtml(ev.name)}</span>` : '<span>未知事件</span>'}
+            ${g.address ? `<span>· 📍 ${escapeHtml(g.address)}</span>` : ''}
+          </div>
+          <span class="text-xs text-gray-400">${formatDate(g.createdAt)}</span>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  html = `<div class="bg-blue-50 rounded-xl p-3 mb-3 text-center">
+    <span class="text-blue-600">收礼 ${gifts.length} 条 · 合计 ${formatMoney(totalAll)}</span>
+    <span class="text-orange-500"> | 送礼 ${sentGifts.length} 条 · 合计 ${formatMoney(totalSent)}</span>
+  </div>` + html;
+
+  container.innerHTML = html;
+}
+
+// ===================== 统计 =====================
+function renderStats() {
+  const events = appData.events;
+  const gifts = appData.gifts;
+  const container = document.getElementById('stats-content');
+
+  if (events.length === 0) {
+    container.innerHTML = `<div class="text-center py-20 text-gray-400">
+      <div class="text-5xl mb-3">📊</div>
+      <p class="text-lg">暂无数据</p>
+    </div>`;
+    return;
+  }
+
+  let totalAll = 0, redTotal = 0, whiteTotal = 0;
+  gifts.forEach(g => {
+    const ev = events.find(e => e.id === g.eventId);
+    totalAll += Number(g.amount);
+    if (ev && ev.type === 'red') redTotal += Number(g.amount);
+    else whiteTotal += Number(g.amount);
+  });
+  const redEvents = events.filter(e => e.type === 'red');
+  const whiteEvents = events.filter(e => e.type === 'white');
+
+  let html = '';
+
+  html += `<div class="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-5 text-white shadow-lg mb-4">
+    <div class="text-center">
+      <div class="text-3xl font-bold">${formatMoney(totalAll)}</div>
+      <div class="text-green-100 text-sm mt-1">礼金总收入</div>
+    </div>
+    <div class="flex items-center justify-around mt-4 pt-4 border-t border-white/20">
+      <div class="text-center">
+        <div class="text-xl font-bold">${events.length}</div>
+        <div class="text-green-100 text-xs">总场次</div>
+      </div>
+      <div class="text-center">
+        <div class="text-xl font-bold">${gifts.length}</div>
+        <div class="text-green-100 text-xs">礼金笔数</div>
+      </div>
+    </div>
+  </div>`;
+
+  html += `<div class="grid grid-cols-2 gap-3 mb-4">
+    <div class="bg-white rounded-2xl p-4 shadow-sm text-center">
+      <div class="text-3xl mb-1">囍</div>
+      <div class="text-lg font-bold text-red-500">${formatMoney(redTotal)}</div>
+      <div class="text-xs text-gray-400">红事 ${redEvents.length}场</div>
+    </div>
+    <div class="bg-white rounded-2xl p-4 shadow-sm text-center">
+      <div class="text-3xl mb-1">奠</div>
+      <div class="text-lg font-bold text-gray-600">${formatMoney(whiteTotal)}</div>
+      <div class="text-xs text-gray-400">白事 ${whiteEvents.length}场</div>
+    </div>
+  </div>`;
+
+  // 送礼统计
+  const sentGifts = appData.sentGifts || [];
+  let sentTotal = 0;
+  sentGifts.forEach(g => sentTotal += Number(g.amount));
+  if (sentTotal > 0) {
+    html += `<div class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl p-5 text-white shadow-lg mb-4">
+      <div class="text-center">
+        <div class="text-3xl font-bold">${formatMoney(sentTotal)}</div>
+        <div class="text-orange-100 text-sm mt-1">送礼总支出</div>
+      </div>
+      <div class="flex items-center justify-around mt-4 pt-4 border-t border-white/20">
+        <div class="text-center">
+          <div class="text-xl font-bold">${sentGifts.length}</div>
+          <div class="text-orange-100 text-xs">送礼笔数</div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  html += `<div class="bg-white rounded-2xl shadow-sm overflow-hidden mb-4">
+    <div class="px-5 py-3 border-b border-gray-100 font-bold text-gray-800">各明细</div>`;
+  events.sort((a,b) => b.date.localeCompare(a.date)).forEach(ev => {
+    const evGifts = gifts.filter(g => g.eventId === ev.id);
+    const evTotal = evGifts.reduce((s, g) => s + Number(g.amount), 0);
+    html += `<div class="px-5 py-3 border-b border-gray-50 flex items-center justify-between">
+      <div class="flex-1 min-w-0">
+        <div class="font-bold text-gray-800">${escapeHtml(ev.name)}</div>
+        <div class="text-xs text-gray-400 mt-0.5">${formatDate(ev.date)} · ${evGifts.length}人</div>
+      </div>
+      <div class="flex items-center gap-2 ml-2">
+        <span class="font-bold ${ev.type==='red'?'text-red-500':'text-gray-600'} whitespace-nowrap">${formatMoney(evTotal)}</span>
+        <button onclick="event.stopPropagation();showEditEventModal('${ev.id}')" class="text-xs bg-blue-50 text-blue-500 px-2 py-1 rounded-lg active:bg-blue-100 whitespace-nowrap">修改</button>
+      </div>
+    </div>`;
+  });
+  html += `</div>`;
+
+  container.innerHTML = html;
+}
+
+// ===================== 我的页面 =====================
+function renderRemarkOptions() {
+  const section = document.getElementById('slogan-edit-section');
+  if (section && !section.classList.contains('hidden')) return;
+  renderSloganInput();
+  const list = document.getElementById('remark-options-list');
+  let html = '';
+  appData.remarkOptions.forEach((opt, i) => {
+    html += `<div class="flex items-center gap-2 bg-gray-50 rounded-full pl-3 pr-1 py-1">
+      <span class="text-sm">${escapeHtml(opt)}</span>
+      <button onclick="removeRemarkOption(${i})" class="bg-gray-300 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center">×</button>
+    </div>`;
+  });
+  list.innerHTML = html;
+}
+
+function renderSloganInput() {
+  const el = document.getElementById('slogan-input');
+  if (el) el.value = getHomeSlogan();
+}
+
+function showSloganEdit() {
+  const section = document.getElementById('slogan-edit-section');
+  section.classList.toggle('hidden');
+  if (!section.classList.contains('hidden')) {
+    renderSloganInput();
+    setTimeout(() => {
+      const el = document.getElementById('slogan-input');
+      if (el) el.focus();
+    }, 100);
+  }
+}
+
+function saveSlogan() {
+  const val = document.getElementById('slogan-input').value.trim();
+  if (!val) { alert('请输入标语内容'); return; }
+  appData.homeSlogan = val;
+  saveData(appData);
+  renderHomeSlogan();
+  alert('标语已保存！');
+  document.getElementById('slogan-edit-section').classList.add('hidden');
+}
+
+function showRemarkOptions() {
+  const section = document.getElementById('remark-options-section');
+  section.classList.toggle('hidden');
+  if (!section.classList.contains('hidden')) {
+    renderRemarkOptions();
+  }
+}
+
+function showAddRemarkModal() {
+  const html = `<div class="p-5">
+    <h3 class="text-xl font-bold text-center mb-5">添加备注选项</h3>
+    <input id="new-remark-option" type="text" placeholder="如：某某亲戚" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-purple-400 outline-none mb-4">
+    <button onclick="addRemarkOption()" class="w-full bg-purple-500 text-white rounded-xl py-3 text-lg font-bold">添加</button>
+  </div>`;
+  showModal(html);
+}
+
+function addRemarkOption() {
+  const val = document.getElementById('new-remark-option').value.trim();
+  if (!val) { alert('请输入选项名称'); return; }
+  if (appData.remarkOptions.includes(val)) { alert('该选项已存在'); return; }
+  appData.remarkOptions.push(val);
+  saveData(appData);
+  closeModal();
+  renderRemarkOptions();
+}
+
+function removeRemarkOption(idx) {
+  if (!confirm('确定删除此选项？')) return;
+  appData.remarkOptions.splice(idx, 1);
+  saveData(appData);
+  renderRemarkOptions();
+}
+
+// ===================== 数据导入导出 =====================
+function exportData() {
+  const dataStr = JSON.stringify(appData, null, 2);
+  const blob = new Blob([dataStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `礼金数据备份_${formatDate(Date.now())}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  alert('数据已导出！');
+}
+
+function importData() {
+  const input = document.getElementById('import-input');
+  input.value = '';
+  input.onchange = async () => {
+    const file = input.files[0];
+    if (!file) return;
+    const text = await file.text();
+    try {
+      const data = JSON.parse(text);
+      if (!data.events || !data.gifts) { alert('文件格式不正确'); return; }
+      if (confirm('导入将覆盖当前所有数据，确定继续？')) {
+        appData = data;
+        if (!appData.remarkOptions) appData.remarkOptions = ['亲戚','朋友','同学','同事','本家','外家','邻居','其他'];
+        if (!appData.sentGifts) appData.sentGifts = [];
+        saveData(appData);
+        alert('数据导入成功！');
+        switchTab('home');
+      }
+    } catch(e) {
+      alert('文件解析失败：' + e.message);
+    }
+    input.value = '';
+  };
+  input.click();
+}
+
+function clearAllData() {
+  if (!confirm('确定清空所有数据？此操作不可恢复！\n\n建议先导出备份。')) return;
+  if (!confirm('再次确认：所有喜事和礼金记录将被删除！')) return;
+  const savedSlogan = appData.homeSlogan;
+  appData = { events: [], gifts: [], sentGifts: [], remarkOptions: ['亲戚','朋友','同学','同事','本家','外家','邻居','其他'] };
+  if (savedSlogan) appData.homeSlogan = savedSlogan;
+  saveData(appData);
+  indexedDB.deleteDatabase(DB_NAME);
+  alert('所有数据已清空');
+  switchTab('home');
+}
+
+// ===================== 送礼列表 =====================
+function renderSentGiftList() {
+  const container = document.getElementById('gift-content');
+  const sentGifts = appData.sentGifts || [];
+  const list = [...sentGifts].sort((a, b) => b.createdAt - a.createdAt);
+  const total = list.reduce((s, g) => s + Number(g.amount), 0);
+
+  if (list.length === 0) {
+    container.innerHTML = `<div class="text-center py-20 text-gray-400">
+      <div class="text-5xl mb-3">🎁</div>
+      <p class="text-lg">暂无送礼记录</p>
+      <p class="text-sm mt-2">点击右上角 + 记录您的送礼</p>
+      <button onclick="showAddSentGiftModal()" class="mt-6 bg-orange-500 text-white rounded-xl px-6 py-2 text-lg font-bold">添加送礼</button>
+    </div>`;
+    return;
+  }
+
+  let html = `<div class="bg-orange-50 rounded-xl p-3 mb-3 text-center">
+    <span class="text-orange-600">共 ${list.length} 条送礼记录，合计 ${formatMoney(total)}</span>
+  </div>`;
+
+  html += `<div class="space-y-3">`;
+  list.forEach(g => {
+    html += `<div onclick="showEditSentGiftModal('${g.id}')" class="bg-white rounded-2xl p-4 shadow-sm active:bg-gray-50 cursor-pointer">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-lg text-gray-800">${escapeHtml(g.name)}</span>
+          ${g.remark ? `<span class="text-xs bg-orange-50 text-orange-500 rounded-full px-2 py-0.5">${escapeHtml(g.remark)}</span>` : ''}
+        </div>
+        <span class="text-lg font-bold text-orange-500">${formatMoney(g.amount)}</span>
+      </div>
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2 text-xs text-gray-400">
+          <span>${formatDate(g.date || g.createdAt)}</span>
+          ${g.phone ? `<span>· 📱 ${escapeHtml(g.phone)}</span>` : ''}
+        </div>
+        <span class="text-gray-400 text-xl">›</span>
+      </div>
+      ${g.address ? `<div class="text-xs text-gray-400 mt-1">📍 ${escapeHtml(g.address)}</div>` : ''}
+    </div>`;
+  });
+  html += `</div>`;
+
+  container.innerHTML = html;
+}
+
+// ===================== 送礼记录表单 =====================
+function showAddSentGiftModal() {
+  currentSentGiftEditId = null;
+  let html = `<div class="p-5">
+    <h3 class="text-xl font-bold text-center mb-5">添加送礼记录</h3>
+    <div class="space-y-4">
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">日期</label>
+        <input id="sent-date" type="date" value="${formatDate(Date.now())}" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-orange-400 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">对方姓名（谁的红白喜事）</label>
+        <input id="sent-name" type="text" placeholder="如：张三" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-orange-400 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">礼金金额（元）</label>
+        <input id="sent-amount" type="number" placeholder="输入金额" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-orange-400 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">对方手机</label>
+        <input id="sent-phone" type="tel" placeholder="选填" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-orange-400 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">对方地址</label>
+        <input id="sent-address" type="text" placeholder="如：北京朝阳区" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-orange-400 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">备注</label>
+        <div class="flex gap-2 mb-2">
+          <input id="sent-remark-input" type="text" placeholder="点击下方标签或输入自定义备注" class="flex-1 border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-orange-400 outline-none">
+          <button type="button" onclick="undoLastRemarkTag('sent-remark-input')" class="shrink-0 border-2 border-gray-200 rounded-lg px-3 text-sm text-gray-400 active:bg-gray-100">撤销</button>
+        </div>
+        <div class="flex flex-wrap gap-2" id="sent-remark-tags">`;
+  appData.remarkOptions.forEach((opt, i) => {
+    html += `<button onclick="selectSentRemark(this, '${opt}')" class="tag-btn border-2 border-gray-200 rounded-full px-4 py-2 text-sm" data-cat="${opt}">${opt}</button>`;
+  });
+  html += `</div></div>
+      <button onclick="saveSentGift()" class="w-full bg-orange-500 text-white rounded-xl py-3 text-lg font-bold mt-2">保存</button>
+    </div>
+  </div>`;
+  showModal(html);
+}
+
+function selectSentRemark(btn, cat) {
+  appendRemarkTag('sent-remark-input', cat);
+}
+
+function getSelectedSentRemark() {
+  const input = document.getElementById('sent-remark-input');
+  if (input && input.value.trim()) return input.value.trim();
+  const sel = document.querySelector('#sent-remark-tags .selected');
+  return sel ? sel.dataset.cat : '';
+}
+
+function saveSentGift() {
+  try {
+    const date = document.getElementById('sent-date').value;
+    const name = document.getElementById('sent-name').value.trim();
+    const amount = parseFloat(document.getElementById('sent-amount').value);
+    const phone = document.getElementById('sent-phone').value.trim();
+    const address = document.getElementById('sent-address').value.trim();
+    const remark = getSelectedSentRemark();
+    
+    if (!name) { alert('请输入对方姓名'); return; }
+    if (!amount || amount <= 0) { alert('请输入有效的金额'); return; }
+    
+    if (currentSentGiftEditId) {
+      const g = (appData.sentGifts || []).find(x => x.id === currentSentGiftEditId);
+      if (g) {
+        g.date = date;
+        g.name = name;
+        g.amount = amount;
+        g.phone = phone;
+        g.address = address;
+        g.remark = remark;
+      }
+    } else {
+      if (!appData.sentGifts) appData.sentGifts = [];
+      appData.sentGifts.push({
+        id: genId('sent'),
+        date: date,
+        name,
+        amount,
+        phone,
+        address,
+        remark,
+        createdAt: Date.now()
+      });
+    }
+    
+    saveData(appData);
+    closeModal();
+    if (document.getElementById('page-gift').classList.contains('active')) {
+      renderSentGiftList();
+    }
+    if (document.getElementById('page-search').classList.contains('active')) {
+      doSearch();
+    }
+    if (document.getElementById('page-stats').classList.contains('active')) {
+      renderStats();
+    }
+  } catch(e) {
+    console.error('saveSentGift error:', e);
+    alert('保存失败：' + e.message);
+  }
+}
+
+function showEditSentGiftModal(giftId) {
+  const g = (appData.sentGifts || []).find(x => x.id === giftId);
+  if (!g) return;
+  currentSentGiftEditId = giftId;
+  
+  let html = `<div class="p-5">
+    <h3 class="text-xl font-bold text-center mb-5">编辑送礼记录</h3>
+    <div class="space-y-4">
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">日期</label>
+        <input id="sent-date" type="date" value="${g.date || formatDate(g.createdAt)}" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-orange-400 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">对方姓名</label>
+        <input id="sent-name" type="text" value="${escapeHtml(g.name)}" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-orange-400 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">礼金金额（元）</label>
+        <input id="sent-amount" type="number" value="${g.amount}" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-orange-400 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">对方手机</label>
+        <input id="sent-phone" type="tel" value="${escapeHtml(g.phone || '')}" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-orange-400 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">对方地址</label>
+        <input id="sent-address" type="text" value="${escapeHtml(g.address || '')}" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-orange-400 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">备注</label>
+        <div class="flex gap-2 mb-2">
+          <input id="sent-remark-input" type="text" value="${escapeHtml(g.remark || '')}" placeholder="点击下方标签或输入自定义备注" class="flex-1 border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-orange-400 outline-none">
+          <button type="button" onclick="undoLastRemarkTag('sent-remark-input')" class="shrink-0 border-2 border-gray-200 rounded-lg px-3 text-sm text-gray-400 active:bg-gray-100">撤销</button>
+        </div>
+        <div class="flex flex-wrap gap-2" id="sent-remark-tags">`;
+  appData.remarkOptions.forEach((opt) => {
+    html += `<button onclick="selectSentRemark(this, '${opt}')" class="tag-btn border-2 border-gray-200 rounded-full px-4 py-2 text-sm" data-cat="${opt}">${opt}</button>`;
+  });
+  html += `</div></div>
+      <button onclick="saveSentGift()" class="w-full bg-orange-500 text-white rounded-xl py-3 text-lg font-bold mt-2">保存</button>
+      <button onclick="deleteSentGift()" class="w-full bg-red-50 text-red-500 rounded-xl py-3 text-lg font-bold mt-2">删除</button>
+    </div>
+  </div>`;
+  showModal(html);
+}
+
+function deleteSentGift() {
+  if (!confirm('确定删除此送礼记录？')) return;
+  if (currentSentGiftEditId) {
+    appData.sentGifts = (appData.sentGifts || []).filter(g => g.id !== currentSentGiftEditId);
+    saveData(appData);
+    closeModal();
+    if (document.getElementById('page-gift').classList.contains('active')) {
+      renderSentGiftList();
+    }
+    if (document.getElementById('page-search').classList.contains('active')) {
+      doSearch();
+    }
+    if (document.getElementById('page-stats').classList.contains('active')) {
+      renderStats();
+    }
+  }
+}
+
+// ===================== 送礼菜单（用于事件详情页宾客注册入口） =====================
+function showGiftMenu() {
+  const eventsWithQR = appData.events.filter(ev => ev.qrcode);
+  
+  if (eventsWithQR.length === 0) {
+    alert('暂无已创建且上传了收款码的喜事\n\n请先创建喜事并上传收款码，才能进行送礼登记。');
+    return;
+  }
+  
+  let html = `<div class="p-5">
+    <h3 class="text-xl font-bold text-center mb-3">宾客送礼登记</h3>
+    <div class="bg-blue-50 rounded-xl p-3 mb-3">
+      <p class="text-sm text-blue-600 text-center">先选择喜事，再填写送礼人信息</p>
+    </div>
+    <div class="space-y-2 mb-4">`;
+  
+  eventsWithQR.forEach(ev => {
+    const gifts = appData.gifts.filter(g => g.eventId === ev.id);
+    const total = gifts.reduce((s, g) => s + Number(g.amount), 0);
+    
+    html += `<div onclick="closeModal(); showGuestRegister('${ev.id}')" class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 active:bg-gray-50 cursor-pointer">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <span class="text-xl">${ev.type === 'red' ? '囍' : '奠'}</span>
+          <div>
+            <div class="font-bold text-gray-800">${escapeHtml(ev.name)}</div>
+            <div class="text-sm text-gray-400 mt-0.5">${formatDate(ev.date)} · ${gifts.length}人送礼 · ${formatMoney(total)}</div>
+          </div>
+        </div>
+        <span class="text-gray-400 text-xl">›</span>
+      </div>
+    </div>`;
+  });
+  
+  html += `</div>
+    <button onclick="closeModal()" class="w-full bg-gray-100 rounded-xl py-3 mt-4 text-gray-600">取消</button>
+  </div>`;
+  
+  showModal(html);
+}
+
+// ===================== 弹窗系统 =====================
+function showModal(content) {
+  remarkTagHistory = {};
+  const overlay = document.getElementById('modal-overlay');
+  document.getElementById('modal-content').innerHTML = content;
+  overlay.classList.add('active');
+}
+
+function closeModal(e) {
+  if (e && e.target !== document.getElementById('modal-overlay')) return;
+  document.getElementById('modal-overlay').classList.remove('active');
+  document.getElementById('modal-content').innerHTML = '';
+}
+
+// ===================== 封面进入 =====================
+function enterApp() {
+  const cover = document.getElementById('cover-page');
+  cover.style.transition = 'opacity 0.6s ease';
+  cover.style.opacity = '0';
+  setTimeout(() => {
+    cover.classList.add('hidden');
+    cover.style.opacity = '1';
+    document.getElementById('page-home').classList.add('active');
+    renderHomeRecent();
+  }, 600);
+}
+
+function goBackToCover() {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const cover = document.getElementById('cover-page');
+  cover.classList.remove('hidden');
+  cover.style.opacity = '0';
+  setTimeout(() => {
+    cover.style.transition = 'opacity 0.4s ease';
+    cover.style.opacity = '1';
+  }, 10);
+}
+
+function shouldShowCover() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return true;
+    const d = JSON.parse(raw);
+    return !(d.events && d.events.length > 0);
+  } catch(e) {
+    return true;
+  }
+}
+
+// 初始化：有数据则直接进入首页，无数据则显示封面
+if (!shouldShowCover()) {
+  document.getElementById('cover-page').classList.add('hidden');
+  document.getElementById('page-home').classList.add('active');
+}
+
+// ===================== 初始化 =====================
+openDB().catch(() => {});
+renderHomeRecent();
+
+// 检测存储状态
+setTimeout(() => {
+  if (!_storageAvailable) {
+    const el = document.getElementById('storage-status');
+    if (el) el.classList.remove('hidden');
+  }
+}, 500);
+
+// ========== 自动保存机制 ==========
+const _originalSwitchTab = switchTab;
+switchTab = function(tab) {
+  try { saveData(appData); } catch(e) {}
+  _originalSwitchTab(tab);
+};
+
+// 页面离开前保存
+window.addEventListener('beforeunload', () => {
+  try { saveData(appData); } catch(e) {}
+});
+
+// 切换后台时保存
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    try { saveData(appData); } catch(e) {}
+  }
+});
+
+// 定时自动保存（每30秒）
+setInterval(() => {
+  try { saveData(appData); } catch(e) {}
+}, 30000);
+</script>
+
+</body>
+</html>
