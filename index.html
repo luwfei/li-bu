@@ -391,7 +391,7 @@ input, textarea, select { font-size: 16px; -webkit-appearance: none; }
   <input type="file" id="media-input" accept="image/*,video/*" style="display:none">
   <input type="file" id="qrcode-input" accept="image/*" style="display:none">
   <input type="file" id="ocr-input" accept="image/*" capture="environment" style="display:none">
-  <input type="file" id="import-input" accept=".json,application/json,text/json,text/plain" style="display:none">
+  <input type="file" id="import-input" accept=".json" style="display:none">
 
 <script>
 // ===================== 数据层 =====================
@@ -2469,32 +2469,31 @@ function exportData() {
 function importData() {
   const input = document.getElementById('import-input');
   input.value = '';
-  input.onchange = () => {
+  input.onchange = async () => {
     const file = input.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const data = JSON.parse(reader.result);
-        if (!data.events || !data.gifts) { alert('文件格式不正确'); return; }
-        if (confirm('导入将覆盖当前所有数据，确定继续？')) {
-          appData = data;
-          if (!appData.remarkOptions) appData.remarkOptions = ['亲戚','朋友','同学','同事','本家','外家','邻居','其他'];
-          if (!appData.sentGifts) appData.sentGifts = [];
-          saveData(appData);
-          alert('数据导入成功！');
-          switchTab('home');
-        }
-      } catch(e) {
-        alert('文件解析失败：' + e.message);
+    // 手机端 accept=".json" 不一定生效，主动检查扩展名
+    if (!file.name.toLowerCase().endsWith('.json')) {
+      alert('请选择一个 .json 格式的备份文件');
+      input.value = '';
+      return;
+    }
+    const text = await file.text();
+    try {
+      const data = JSON.parse(text);
+      if (!data.events || !data.gifts) { alert('文件格式不正确，缺少 events 或 gifts 数据'); return; }
+      if (confirm('导入将覆盖当前所有数据，确定继续？')) {
+        appData = data;
+        if (!appData.remarkOptions) appData.remarkOptions = ['亲戚','朋友','同学','同事','本家','外家','邻居','其他'];
+        if (!appData.sentGifts) appData.sentGifts = [];
+        saveData(appData);
+        alert('数据导入成功！');
+        switchTab('home');
       }
-      input.value = '';
-    };
-    reader.onerror = () => {
-      alert('文件读取失败，请重试');
-      input.value = '';
-    };
-    reader.readAsText(file, 'UTF-8');
+    } catch(e) {
+      alert('文件解析失败：' + e.message + '\n\n请确保选择的是之前导出的 .json 备份文件，不要选择 .html 文件。');
+    }
+    input.value = '';
   };
   input.click();
 }
