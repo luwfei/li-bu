@@ -114,6 +114,20 @@ input, textarea, select { font-size: 16px; -webkit-appearance: none; }
     .cover-enter-btn { animation: coverFloat 3s ease-in-out infinite; }
   #cover-page ~ .fixed { display: none; }
   #cover-page.hidden ~ .fixed { display: block; }
+  #password-modal { z-index: 200; }
+  .pwd-input {
+    text-align: center;
+    letter-spacing: 8px;
+    font-size: 18px;
+  }
+  .pwd-input:focus { border-color: #b8956a !important; }
+  .pwd-btn {
+    background: #3d2b1f;
+    color: #d4a574;
+    font-family: "KaiTi", "STKaiti", "楷体", serif;
+    letter-spacing: 6px;
+  }
+  .pwd-btn:active { background: #b8956a; color: #fff; }
   </style>
   </head>
   <body class="bg-gray-50">
@@ -299,6 +313,10 @@ input, textarea, select { font-size: 16px; -webkit-appearance: none; }
           <span class="text-lg">导入备份</span>
           <span class="text-gray-400 text-xl">›</span>
         </div>
+        <div onclick="showPasswordManage()" class="flex items-center justify-between px-5 py-4 border-b border-gray-100 cursor-pointer active:bg-gray-50">
+          <span class="text-lg">修改密码</span>
+          <span class="text-gray-400 text-xl">›</span>
+        </div>
         <div onclick="clearAllData()" class="flex items-center justify-between px-5 py-4 cursor-pointer active:bg-gray-50">
           <span class="text-lg text-red-500">清空所有数据</span>
           <span class="text-red-400 text-xl">›</span>
@@ -342,6 +360,24 @@ input, textarea, select { font-size: 16px; -webkit-appearance: none; }
       <div id="ocr-progress" class="text-sm text-gray-500 mt-2"></div>
       <div class="mt-3 w-full bg-gray-200 rounded-full h-2 overflow-hidden">
         <div id="ocr-bar" class="bg-red-500 h-full transition-all duration-300" style="width:0%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 密码弹窗 ============ -->
+  <div id="password-modal" class="modal-overlay" onclick="closePasswordModal(event)">
+    <div class="bg-white rounded-2xl w-[85%] max-w-sm p-6 fade-in" onclick="event.stopPropagation()" style="border: 2px solid #b8956a;">
+      <div class="text-center mb-5">
+        <div id="pwd-icon" class="text-4xl mb-2">🔒</div>
+        <h3 id="pwd-title" class="text-xl font-bold text-gray-800" style="font-family: KaiTi, STKaiti, 楷体, serif;">请输入密码</h3>
+        <p id="pwd-subtitle" class="text-sm text-gray-500 mt-1"></p>
+      </div>
+      <div class="space-y-3">
+        <input id="pwd-old-input" type="password" placeholder="当前密码" class="pwd-input hidden w-full border-2 border-gray-200 rounded-lg px-4 py-3 outline-none">
+        <input id="pwd-input" type="password" placeholder="请输入密码" class="pwd-input w-full border-2 border-gray-200 rounded-lg px-4 py-3 outline-none">
+        <input id="pwd-confirm-input" type="password" placeholder="确认密码" class="pwd-input hidden w-full border-2 border-gray-200 rounded-lg px-4 py-3 outline-none">
+        <div id="pwd-error" class="hidden text-red-500 text-sm text-center"></div>
+        <button id="pwd-submit-btn" onclick="submitPassword()" class="pwd-btn w-full rounded-xl py-3 text-lg font-bold">确 认</button>
       </div>
     </div>
   </div>
@@ -2347,8 +2383,9 @@ function clearAllData() {
   appData = { events: [], gifts: [], sentGifts: [], remarkOptions: ['亲戚','朋友','同学','同事','本家','外家','邻居','其他'] };
   if (savedSlogan) appData.homeSlogan = savedSlogan;
   saveData(appData);
+  localStorage.removeItem(PWD_KEY);
   indexedDB.deleteDatabase(DB_NAME);
-  alert('所有数据已清空');
+  alert('所有数据已清空，密码也已清除');
   switchTab('home');
 }
 
@@ -2624,8 +2661,170 @@ function closeModal(e) {
   document.getElementById('modal-content').innerHTML = '';
 }
 
+// ===================== 密码保护 =====================
+const PWD_KEY = 'rw_gift_pwd_hash';
+let _pwdMode = 'verify'; // 'verify' | 'set' | 'change'
+
+async function hashPassword(pwd) {
+  try {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(pwd + '_rw_gift_salt_v1');
+    const hash = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch(e) {
+    // 非安全上下文降级
+    let h = 0;
+    const s = pwd + '_rw_gift_salt_v1';
+    for (let i = 0; i < s.length; i++) { h = ((h << 5) - h) + s.charCodeAt(i); h |= 0; }
+    return 'fb_' + Math.abs(h).toString(16);
+  }
+}
+
+function isPasswordSet() {
+  return !!localStorage.getItem(PWD_KEY);
+}
+
+function showPasswordModal(mode) {
+  _pwdMode = mode;
+  const modal = document.getElementById('password-modal');
+  const title = document.getElementById('pwd-title');
+  const subtitle = document.getElementById('pwd-subtitle');
+  const icon = document.getElementById('pwd-icon');
+  const oldInput = document.getElementById('pwd-old-input');
+  const input = document.getElementById('pwd-input');
+  const confirmInput = document.getElementById('pwd-confirm-input');
+  const error = document.getElementById('pwd-error');
+  const btn = document.getElementById('pwd-submit-btn');
+
+  oldInput.value = '';
+  input.value = '';
+  confirmInput.value = '';
+  error.classList.add('hidden');
+
+  if (mode === 'set') {
+    icon.textContent = '🔑';
+    title.textContent = '设置访问密码';
+    subtitle.textContent = '首次使用，请设置密码保护数据';
+    oldInput.classList.add('hidden');
+    input.classList.remove('hidden');
+    input.placeholder = '设置密码（至少4位）';
+    confirmInput.classList.remove('hidden');
+    btn.textContent = '设置并进入';
+  } else if (mode === 'verify') {
+    icon.textContent = '🔒';
+    title.textContent = '请输入密码';
+    subtitle.textContent = '';
+    oldInput.classList.add('hidden');
+    input.classList.remove('hidden');
+    input.placeholder = '请输入密码';
+    confirmInput.classList.add('hidden');
+    btn.textContent = '进 入';
+  } else if (mode === 'change') {
+    icon.textContent = '🔑';
+    title.textContent = '修改密码';
+    subtitle.textContent = '请输入当前密码和新密码';
+    oldInput.classList.remove('hidden');
+    oldInput.placeholder = '当前密码';
+    input.classList.remove('hidden');
+    input.placeholder = '新密码（至少4位）';
+    confirmInput.classList.remove('hidden');
+    confirmInput.placeholder = '确认新密码';
+    btn.textContent = '确认修改';
+  }
+
+  modal.classList.add('active');
+  const focusTarget = mode === 'change' ? oldInput : input;
+  setTimeout(() => focusTarget.focus(), 100);
+}
+
+function showPwdError(msg) {
+  const el = document.getElementById('pwd-error');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
+function closePasswordModal(e) {
+  if (e && e.target !== document.getElementById('password-modal')) return;
+  document.getElementById('password-modal').classList.remove('active');
+}
+
+async function submitPassword() {
+  const oldInput = document.getElementById('pwd-old-input');
+  const input = document.getElementById('pwd-input');
+  const confirmInput = document.getElementById('pwd-confirm-input');
+  const pwd = input.value;
+
+  if (!pwd) { showPwdError('请输入密码'); return; }
+
+  if (_pwdMode === 'set') {
+    if (pwd.length < 4) { showPwdError('密码至少4位'); return; }
+    if (pwd !== confirmInput.value) { showPwdError('两次密码不一致'); return; }
+    const hash = await hashPassword(pwd);
+    localStorage.setItem(PWD_KEY, hash);
+    closePasswordModal();
+    doEnterApp();
+  } else if (_pwdMode === 'verify') {
+    const hash = await hashPassword(pwd);
+    if (hash === localStorage.getItem(PWD_KEY)) {
+      closePasswordModal();
+      doEnterApp();
+    } else {
+      showPwdError('密码错误');
+      input.value = '';
+      input.focus();
+    }
+  } else if (_pwdMode === 'change') {
+    const oldPwd = oldInput.value;
+    if (!oldPwd) { showPwdError('请输入当前密码'); return; }
+    const oldHash = await hashPassword(oldPwd);
+    if (oldHash !== localStorage.getItem(PWD_KEY)) {
+      showPwdError('当前密码错误');
+      oldInput.value = '';
+      oldInput.focus();
+      return;
+    }
+    if (pwd.length < 4) { showPwdError('新密码至少4位'); return; }
+    if (pwd !== confirmInput.value) { showPwdError('两次新密码不一致'); return; }
+    const hash = await hashPassword(pwd);
+    localStorage.setItem(PWD_KEY, hash);
+    closePasswordModal();
+    alert('密码修改成功');
+  }
+}
+
+function showPasswordManage() {
+  if (!isPasswordSet()) {
+    showPasswordModal('set');
+  } else {
+    showPasswordModal('change');
+  }
+}
+
+// 回车提交密码
+document.addEventListener('keydown', (e) => {
+  if (!document.getElementById('password-modal').classList.contains('active')) return;
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    // 如果当前焦点在旧密码框且有值，跳到新密码框
+    const oldInput = document.getElementById('pwd-old-input');
+    if (_pwdMode === 'change' && document.activeElement === oldInput && oldInput.value) {
+      document.getElementById('pwd-input').focus();
+      return;
+    }
+    submitPassword();
+  }
+});
+
 // ===================== 封面进入 =====================
 function enterApp() {
+  if (isPasswordSet()) {
+    showPasswordModal('verify');
+  } else {
+    showPasswordModal('set');
+  }
+}
+
+function doEnterApp() {
   const cover = document.getElementById('cover-page');
   cover.style.transition = 'opacity 0.6s ease';
   cover.style.opacity = '0';
@@ -2659,11 +2858,8 @@ function shouldShowCover() {
   }
 }
 
-// 初始化：有数据则直接进入首页，无数据则显示封面
-if (!shouldShowCover()) {
-  document.getElementById('cover-page').classList.add('hidden');
-  document.getElementById('page-home').classList.add('active');
-}
+// 初始化：始终显示封面页，点击"进入"后走密码流程
+// （已设密码→验证，未设密码→设置）
 
 // ===================== 初始化 =====================
 openDB().catch(() => {});
