@@ -1893,24 +1893,42 @@ function renderScanBatchTable(evId) {
   <div id="scan-table-container" class="space-y-2">`;
   currentScanEditResults.forEach((r, i) => {
     const isPartial = !r.name || !r.amount;
-    html += `<div class="bg-gray-50 rounded-xl p-3 flex items-start gap-2 ${isPartial ? 'ring-1 ring-orange-300' : ''}">
-      <input type="checkbox" id="scan-chk-${i}" checked class="w-5 h-5 accent-red-500 flex-shrink-0 mt-2">
-      <div class="flex-1 space-y-2">
-        <div class="grid grid-cols-2 gap-2">
-          <input type="text" id="scan-name-${i}" value="${escapeHtml(String(r.name || ''))}" placeholder="姓名" class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-red-400 outline-none">
-          <input type="number" id="scan-amount-${i}" value="${r.amount}" placeholder="金额(元)" class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-red-400 outline-none">
+    html += `<div class="bg-gray-50 rounded-xl p-3 ${isPartial ? 'ring-1 ring-orange-300' : ''}">
+      <div class="flex items-start gap-2">
+        <input type="checkbox" id="scan-chk-${i}" checked class="w-5 h-5 accent-red-500 flex-shrink-0 mt-1">
+        <div class="flex-1 space-y-3">
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">姓名</label>
+            <input type="text" id="scan-name-${i}" value="${escapeHtml(String(r.name || ''))}" placeholder="送礼人姓名" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 text-base focus:border-red-400 outline-none">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">金额（元）</label>
+            <input type="number" id="scan-amount-${i}" value="${r.amount}" placeholder="输入金额" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 text-base focus:border-red-400 outline-none">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">住地</label>
+            <input type="text" id="scan-address-${i}" value="${escapeHtml(r.address || '')}" placeholder="如：北京朝阳区" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 text-base focus:border-red-400 outline-none">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">手机</label>
+            <input type="tel" id="scan-phone-${i}" value="${escapeHtml(r.phone || '')}" placeholder="选填" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 text-base focus:border-red-400 outline-none">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">备注</label>
+            <div class="flex gap-2 mb-2">
+              <input id="scan-remark-${i}" type="text" value="${escapeHtml(r.remark || '')}" list="scan-remark-options" placeholder="点击下方标签或输入自定义备注" class="flex-1 border-2 border-gray-200 rounded-lg px-4 py-3 text-base focus:border-red-400 outline-none">
+              <button type="button" onclick="undoLastRemarkTag('scan-remark-${i}')" class="shrink-0 border-2 border-gray-200 rounded-lg px-3 text-sm text-gray-400 active:bg-gray-100">撤销</button>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              ${appData.remarkOptions.map(opt => `<button type="button" onclick="appendRemarkTag('scan-remark-${i}', '${escapeHtml(opt)}')" class="tag-btn border-2 border-gray-200 rounded-full px-4 py-2 text-sm" data-cat="${escapeHtml(opt)}">${escapeHtml(opt)}</button>`).join('')}
+            </div>
+          </div>
         </div>
-        <div class="grid grid-cols-2 gap-2">
-          <input type="text" id="scan-address-${i}" value="${escapeHtml(r.address || '')}" placeholder="住地（如：本村、北京）" class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-red-400 outline-none">
-          <input type="tel" id="scan-phone-${i}" value="${escapeHtml(r.phone || '')}" placeholder="电话（选填）" class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-red-400 outline-none">
+        <div class="flex flex-col items-center gap-1 flex-shrink-0">
+          ${isPartial ? '<span class="text-orange-500 text-xs font-bold">缺</span>' : ''}
+          <button onclick="removeScanRow(${i})" class="text-red-400 text-2xl px-1 leading-none">×</button>
         </div>
-        <div class="flex flex-wrap gap-1">
-          ${appData.remarkOptions.map(opt => `<button type="button" onclick="appendRemarkTag('scan-remark-${i}', '${escapeHtml(opt)}')" class="bg-white border border-gray-200 rounded-full px-2.5 py-1 text-xs text-gray-600 active:bg-red-50">${escapeHtml(opt)}</button>`).join('')}
-        </div>
-        <input type="text" id="scan-remark-${i}" value="${escapeHtml(r.remark || '')}" list="scan-remark-options" placeholder="备注（点上方标签或输入，如：父亲同事）" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-red-400 outline-none">
       </div>
-      ${isPartial ? '<span class="text-orange-500 text-xs flex-shrink-0 mt-2">缺</span>' : ''}
-      <button onclick="removeScanRow(${i})" class="text-red-400 text-2xl flex-shrink-0 px-1 leading-none mt-1">×</button>
     </div>`;
   });
   html += `</div>
