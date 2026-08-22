@@ -133,6 +133,10 @@ input, textarea, select { font-size: 16px; -webkit-appearance: none; }
     letter-spacing: 6px;
   }
   .pwd-btn:active { background: #b8956a; color: #fff; }
+  .family-graph-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .family-graph-scroll::-webkit-scrollbar { height: 4px; }
+  .family-graph-scroll::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 2px; }
+  .family-svg text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; }
   </style>
   </head>
   <body class="bg-gray-50">
@@ -209,7 +213,7 @@ input, textarea, select { font-size: 16px; -webkit-appearance: none; }
     <div class="px-5 mt-6">
       <div class="bg-white rounded-2xl p-5 shadow-sm">
         <div class="text-lg font-bold text-gray-800 mb-3">快捷功能</div>
-        <div class="grid grid-cols-3 gap-3">
+        <div class="grid grid-cols-4 gap-3">
           <div onclick="switchTab('search')" class="flex flex-col items-center active:scale-95 transition-transform cursor-pointer">
             <div class="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-2xl">🔍</div>
             <span class="text-sm text-gray-600 mt-1">搜索</span>
@@ -217,6 +221,10 @@ input, textarea, select { font-size: 16px; -webkit-appearance: none; }
           <div onclick="switchTab('stats')" class="flex flex-col items-center active:scale-95 transition-transform cursor-pointer">
             <div class="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center text-2xl">📊</div>
             <span class="text-sm text-gray-600 mt-1">统计</span>
+          </div>
+          <div onclick="switchTab('family')" class="flex flex-col items-center active:scale-95 transition-transform cursor-pointer">
+            <div class="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center text-2xl">🌳</div>
+            <span class="text-sm text-gray-600 mt-1">族谱</span>
           </div>
           <div onclick="switchTab('profile')" class="flex flex-col items-center active:scale-95 transition-transform cursor-pointer">
             <div class="w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center text-2xl">⚙️</div>
@@ -330,6 +338,23 @@ input, textarea, select { font-size: 16px; -webkit-appearance: none; }
     </div>
   </div>
 
+  <!-- ============ 族谱页 ============ -->
+  <div id="page-family" class="page">
+    <div class="bg-gradient-to-r from-amber-500 to-amber-600 text-white px-5 pt-12 pb-4 sticky top-0 z-10">
+      <div class="flex items-center justify-between">
+        <button onclick="switchTab('home')" class="text-white text-2xl">‹</button>
+        <h2 class="text-xl font-bold">族谱</h2>
+        <div class="flex items-center gap-2">
+          <button onclick="toggleFamilyView()" id="family-view-toggle" class="bg-white/20 rounded-lg px-3 py-1 text-sm font-bold">关系图</button>
+          <button onclick="showAddFamilyModal()" class="bg-white/20 rounded-full w-10 h-10 flex items-center justify-center text-2xl">+</button>
+        </div>
+      </div>
+      <p class="text-amber-100 text-sm mt-2 text-center">饮水思源，恩泽长存</p>
+    </div>
+    <div id="family-content" class="px-5 mt-4"></div>
+    <div id="family-graph-view" class="hidden px-5 mt-4 pb-8"></div>
+  </div>
+
   <!-- ============ 底部导航 ============ -->
   <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-40 pb-safe">
     <div class="flex items-center justify-around py-2">
@@ -344,6 +369,10 @@ input, textarea, select { font-size: 16px; -webkit-appearance: none; }
       <div onclick="switchTab('gift')" id="tab-gift" class="flex flex-col items-center cursor-pointer flex-1">
         <span class="text-xl">🎁</span>
         <span class="text-xs text-gray-500 mt-0.5">送礼</span>
+      </div>
+      <div onclick="switchTab('family')" id="tab-family" class="flex flex-col items-center cursor-pointer flex-1">
+        <span class="text-xl">🌳</span>
+        <span class="text-xs text-gray-500 mt-0.5">族谱</span>
       </div>
       <div onclick="switchTab('profile')" id="tab-profile" class="flex flex-col items-center cursor-pointer flex-1">
         <span class="text-xl">⚙️</span>
@@ -417,7 +446,7 @@ function checkStorageAvailable() {
 let _storageAvailable = checkStorageAvailable();
 
 function loadData() {
-  let def = { events: [], gifts: [], sentGifts: [], remarkOptions: ['亲戚','朋友','同学','同事','本家','外家','邻居','其他'] };
+  let def = { events: [], gifts: [], sentGifts: [], familyMembers: [], remarkOptions: ['亲戚','朋友','同学','同事','本家','外家','邻居','其他'] };
   try {
     const raw = localStorage.getItem(STORE_KEY);
     if (raw) {
@@ -426,6 +455,7 @@ function loadData() {
         def = d; 
         if (!def.remarkOptions) def.remarkOptions = ['亲戚','朋友','同学','同事','本家','外家','邻居','其他']; 
         if (!def.sentGifts) def.sentGifts = []; 
+        if (!def.familyMembers) def.familyMembers = []; 
       }
     }
   } catch(e) {}
@@ -604,6 +634,7 @@ function switchTab(tab) {
   if (tab === 'profile') renderRemarkOptions();
   if (tab === 'search') doSearch();
   if (tab === 'gift') renderSentGiftList();
+  if (tab === 'family') renderFamilyTree();
 }
 
 function goEventList(type) {
@@ -2486,6 +2517,7 @@ function importData() {
         appData = data;
         if (!appData.remarkOptions) appData.remarkOptions = ['亲戚','朋友','同学','同事','本家','外家','邻居','其他'];
         if (!appData.sentGifts) appData.sentGifts = [];
+        if (!appData.familyMembers) appData.familyMembers = [];
         saveData(appData);
         alert('数据导入成功！');
         switchTab('home');
@@ -2502,7 +2534,7 @@ function clearAllData() {
   if (!confirm('确定清空所有数据？此操作不可恢复！\n\n建议先导出备份。')) return;
   if (!confirm('再次确认：所有喜事和礼金记录将被删除！')) return;
   const savedSlogan = appData.homeSlogan;
-  appData = { events: [], gifts: [], sentGifts: [], remarkOptions: ['亲戚','朋友','同学','同事','本家','外家','邻居','其他'] };
+  appData = { events: [], gifts: [], sentGifts: [], familyMembers: [], remarkOptions: ['亲戚','朋友','同学','同事','本家','外家','邻居','其他'] };
   if (savedSlogan) appData.homeSlogan = savedSlogan;
   saveData(appData);
   localStorage.removeItem(PWD_KEY);
@@ -2794,6 +2826,414 @@ function closeModal(e) {
   modalContent.innerHTML = '';
   modalContent.classList.remove('scan-modal-flex');
   modalContent.classList.add('overflow-y-auto');
+}
+
+// ===================== 族谱 =====================
+let currentFamilyEditId = null;
+
+// 辈分选项
+const GENERATIONS = ['第一世', '第二世', '第三世', '第四世', '第五世', '第六世', '第七世', '第八世', '第九世', '第十世'];
+
+function renderFamilyTree() {
+  const container = document.getElementById('family-content');
+  const members = appData.familyMembers || [];
+
+  if (members.length === 0) {
+    container.innerHTML = `<div class="text-center py-20 text-gray-400">
+      <div class="text-5xl mb-3">🌳</div>
+      <p class="text-lg">暂无族谱信息</p>
+      <p class="text-sm mt-2">点击右上角 + 添加家族成员</p>
+      <button onclick="showAddFamilyModal()" class="mt-6 bg-amber-500 text-white rounded-xl px-6 py-2 text-lg font-bold">添加成员</button>
+    </div>`;
+    return;
+  }
+
+  // 按辈分分组
+  const groups = {};
+  members.forEach(m => {
+    const gen = m.generation || '未分辈分';
+    if (!groups[gen]) groups[gen] = [];
+    groups[gen].push(m);
+  });
+
+  // 排序辈分
+  const sortedGens = Object.keys(groups).sort((a, b) => {
+    const ia = GENERATIONS.indexOf(a);
+    const ib = GENERATIONS.indexOf(b);
+    if (ia === -1 && ib === -1) return a.localeCompare(b);
+    if (ia === -1) return 1;
+    if (ib === -1) return -1;
+    return ia - ib;
+  });
+
+  let html = '';
+  sortedGens.forEach(gen => {
+    const list = groups[gen];
+    html += `<div class="mb-5">
+      <div class="flex items-center gap-2 mb-3">
+        <div class="w-1 h-5 bg-amber-500 rounded-full"></div>
+        <h3 class="text-lg font-bold text-gray-800">${escapeHtml(gen)}</h3>
+        <span class="text-sm text-gray-400">(${list.length}人)</span>
+      </div>
+      <div class="space-y-2">`;
+    list.forEach(m => {
+      const info = [];
+      if (m.birthYear) info.push(m.birthYear + '年生');
+      if (m.relation) info.push(m.relation);
+      if (m.phone) info.push(m.phone);
+      html += `<div class="bg-white rounded-xl shadow-sm p-4 active:bg-gray-50" onclick="showFamilyDetail('${m.id}')">
+        <div class="flex items-start justify-between">
+          <div class="flex-1">
+            <div class="flex items-center gap-2">
+              <span class="text-lg font-bold text-gray-800">${escapeHtml(m.name)}</span>
+              ${m.gender === 'male' ? '<span class="text-blue-500 text-sm">♂</span>' : m.gender === 'female' ? '<span class="text-pink-500 text-sm">♀</span>' : ''}
+            </div>
+            ${info.length > 0 ? `<div class="text-sm text-gray-500 mt-1">${info.join(' · ')}</div>` : ''}
+            ${m.address ? `<div class="text-sm text-gray-400 mt-1">📍 ${escapeHtml(m.address)}</div>` : ''}
+            ${m.note ? `<div class="text-sm text-gray-400 mt-1">${escapeHtml(m.note)}</div>` : ''}
+          </div>
+          <div class="flex gap-2">
+            <button onclick="event.stopPropagation();showEditFamilyModal('${m.id}')" class="text-amber-500 text-sm font-bold">编辑</button>
+            <button onclick="event.stopPropagation();deleteFamilyMember('${m.id}')" class="text-red-400 text-sm font-bold">删除</button>
+          </div>
+        </div>
+      </div>`;
+    });
+    html += `</div></div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+let _familyViewMode = 'list'; // 'list' | 'graph'
+
+function toggleFamilyView() {
+  _familyViewMode = _familyViewMode === 'list' ? 'graph' : 'list';
+  const content = document.getElementById('family-content');
+  const graph = document.getElementById('family-graph-view');
+  const btn = document.getElementById('family-view-toggle');
+  if (_familyViewMode === 'graph') {
+    content.classList.add('hidden');
+    graph.classList.remove('hidden');
+    if (btn) btn.textContent = '列表';
+    renderFamilyGraph();
+  } else {
+    graph.classList.add('hidden');
+    content.classList.remove('hidden');
+    if (btn) btn.textContent = '关系图';
+    renderFamilyTree();
+  }
+}
+
+function renderFamilyGraph() {
+  const container = document.getElementById('family-graph-view');
+  const members = appData.familyMembers || [];
+
+  if (members.length === 0) {
+    container.innerHTML = `<div class="text-center py-20 text-gray-400">
+      <div class="text-5xl mb-3">🌳</div>
+      <p class="text-lg">暂无族谱信息</p>
+      <p class="text-sm mt-2">添加成员后查看关系图</p>
+      <button onclick="showAddFamilyModal()" class="mt-6 bg-amber-500 text-white rounded-xl px-6 py-2 text-lg font-bold">添加成员</button>
+    </div>`;
+    return;
+  }
+
+  // 按辈分分组
+  const groups = {};
+  members.forEach(m => {
+    const gen = m.generation || '未分辈分';
+    if (!groups[gen]) groups[gen] = [];
+    groups[gen].push(m);
+  });
+
+  const sortedGens = Object.keys(groups).sort((a, b) => {
+    const ia = GENERATIONS.indexOf(a);
+    const ib = GENERATIONS.indexOf(b);
+    if (ia === -1 && ib === -1) return a.localeCompare(b);
+    if (ia === -1) return 1;
+    if (ib === -1) return -1;
+    return ia - ib;
+  });
+
+  // 按辈分配色
+  const colors = [
+    '#7c3aed','#8b5cf6','#a78bfa',
+    '#d97706','#f59e0b','#fbbf24',
+    '#059669','#10b981','#34d399',
+    '#0369a1','#0ea5e9','#38bdf8'
+  ];
+
+  const nodePositions = {};
+  const nodeRadius = 56;
+  const rowHeight = 110;
+  const colGap = 24;
+  const canvasPadding = 24;
+
+  let rows = sortedGens.map(gen => groups[gen]);
+  let maxRow = Math.max(...rows.map(r => r.length), 1);
+  let baseCanvasW = Math.max(maxRow * (nodeRadius * 2 + colGap) + canvasPadding * 2 - colGap, 320);
+
+  let html = '<div class="family-graph-scroll" style="overflow-x:auto;">\n';
+  let svgW = baseCanvasW;
+  let svgH = sortedGens.length * rowHeight + canvasPadding * 2;
+
+  // 背景
+  html += `<svg width="${svgW}" height="${svgH}" class="family-svg" style="display:block;margin:0 auto;background:#fafafa;border-radius:12px;">\n`;
+
+  // 行背景 + 标签
+  rows.forEach((row, idx) => {
+    const yTop = canvasPadding + idx * rowHeight;
+    const colorIdx = idx % colors.length;
+    html += `  <rect x="0" y="${yTop}" width="${svgW}" height="${rowHeight}" fill="${colors[colorIdx]}" fill-opacity="0.05"/>\n`;
+    html += `  <text x="${canvasPadding}" y="${yTop + 18}" fill="${colors[colorIdx]}" font-size="11" font-weight="bold">${sortedGens[idx]}</text>\n`;
+  });
+
+  // 连线层
+  let edges = [];
+  let drawnPairs = new Set();
+  rows.forEach((row, idx) => {
+    if (idx + 1 >= rows.length) return;
+    const nextRow = rows[idx + 1];
+    const yParent = canvasPadding + idx * rowHeight + rowHeight / 2;
+    const yChild = canvasPadding + (idx + 1) * rowHeight + rowHeight / 2;
+    row.forEach((parent, pIdx) => {
+      let px = 0;
+      if (row.length === 1) px = svgW / 2;
+      else {
+        const totalW = svgW - canvasPadding * 2;
+        const step = totalW / (Math.max(row.length, 1));
+        px = canvasPadding + pIdx * step + step / 2;
+      }
+      if (nodePositions[parent.id]) px = nodePositions[parent.id].x;
+      else nodePositions[parent.id] = { x: px, y: yParent, row: idx };
+
+      nextRow.forEach((child, cIdx) => {
+        if (child.name.includes(parent.name) || parent.name.includes(child.name)) return;
+        let match = false;
+        const pName = parent.name;
+        const cName = child.name;
+        if (cName.includes(pName) || pName.includes(cName)) match = true;
+        else {
+          const pNotes = (parent.note || '').toLowerCase();
+          const cNotes = (child.note || '').toLowerCase();
+          if (pNotes.includes(cName.toLowerCase()) || cNotes.includes(pName.toLowerCase())) match = true;
+        }
+        if (match) {
+          const pairKey = [parent.id, child.id].sort().join('|');
+          if (drawnPairs.has(pairKey)) return;
+          drawnPairs.add(pairKey);
+
+          let cx = 0;
+          if (nextRow.length === 1) cx = svgW / 2;
+          else {
+            const totalW2 = svgW - canvasPadding * 2;
+            const step2 = totalW2 / (Math.max(nextRow.length, 1));
+            cx = canvasPadding + cIdx * step2 + step2 / 2;
+          }
+          if (nodePositions[child.id]) cx = nodePositions[child.id].x;
+          else nodePositions[child.id] = { x: cx, y: yChild, row: idx + 1 };
+
+          // 绘制曲线
+          const midY = (yParent + yChild) / 2;
+          html += `  <path d="M${px},${yParent + nodeRadius} C${px},${midY} ${cx},${midY} ${cx},${yChild - nodeRadius}" stroke="#d4d4d8" stroke-width="1.5" fill="none" stroke-dasharray="4,3" opacity="0.7"/>\n`;
+          // 箭头
+          html += `  <circle cx="${cx}" cy="${yChild - nodeRadius}" r="3" fill="#d4d4d8"/>\n`;
+        }
+      });
+    });
+  });
+
+  // 节点层
+  rows.forEach((row, idx) => {
+    const yCenter = canvasPadding + idx * rowHeight + rowHeight / 2;
+    row.forEach((m, i) => {
+      let cx = 0;
+      if (row.length === 1) cx = svgW / 2;
+      else {
+        const totalW = svgW - canvasPadding * 2;
+        const step = totalW / (Math.max(row.length, 1));
+        cx = canvasPadding + i * step + step / 2;
+      }
+      if (nodePositions[m.id]) cx = nodePositions[m.id].x;
+      else nodePositions[m.id] = { x: cx, y: yCenter, row: idx };
+
+      const colorIdx = idx % colors.length;
+      const strokeColor = colors[colorIdx];
+      const isMale = m.gender === 'male';
+      const isFemale = m.gender === 'female';
+
+      // 节点圆圈
+      html += `  <circle cx="${cx}" cy="${yCenter}" r="${nodeRadius}" fill="white" stroke="${strokeColor}" stroke-width="2.5"/>\n`;
+
+      // 性别装饰小圆弧
+      if (isMale) {
+        html += `  <path d="M${cx - nodeRadius},${yCenter} A${nodeRadius},${nodeRadius} 0 0,1 ${cx},${yCenter - nodeRadius}" fill="none" stroke="#3b82f6" stroke-width="2"/>\n`;
+      } else if (isFemale) {
+        html += `  <path d="M${cx - nodeRadius},${yCenter} A${nodeRadius},${nodeRadius} 0 0,1 ${cx},${yCenter - nodeRadius}" fill="none" stroke="#ec4899" stroke-width="2" stroke-dasharray="6,3"/>\n`;
+      }
+
+      // 姓名
+      html += `  <text x="${cx}" y="${yCenter - 6}" text-anchor="middle" fill="#1f2937" font-size="13" font-weight="bold">${m.name}</text>\n`;
+      // 关系/称谓
+      if (m.relation) {
+        html += `  <text x="${cx}" y="${yCenter + 10}" text-anchor="middle" fill="#6b7280" font-size="11">${m.relation}</text>\n`;
+      }
+      // 生年
+      if (m.birthYear) {
+        html += `  <text x="${cx}" y="${yCenter + (m.relation ? 24 : 10)}" text-anchor="middle" fill="#9ca3af" font-size="10">${m.birthYear}年生</text>\n`;
+      }
+    });
+  });
+
+  html += '</svg>\n';
+  html += '</div>';
+
+  // 图例
+  html += `<div class="flex items-center justify-center gap-4 mt-3 text-xs text-gray-500 flex-wrap">\n`;
+  html += `  <div class="flex items-center gap-1"><span class="w-3 h-3 rounded-full border-2" style="border-color:#3b82f6"></span>男性</div>\n`;
+  html += `  <div class="flex items-center gap-1"><span class="w-3 h-3 rounded-full border-2" style="border-color:#ec4899"></span>女性</div>\n`;
+  html += `  <div class="flex items-center gap-1"><span class="w-6 h-0.5 bg-gray-300"></span>辈分关联</div>\n`;
+  html += `  <div class="text-gray-400">提示：名字互含或备注互含自动连线</div>\n`;
+  html += `</div>`;
+
+  container.innerHTML = html;
+}
+
+function showAddFamilyModal() {
+  currentFamilyEditId = null;
+  _renderFamilyForm();
+}
+
+function showEditFamilyModal(id) {
+  currentFamilyEditId = id;
+  _renderFamilyForm();
+}
+
+function _renderFamilyForm() {
+  const m = currentFamilyEditId ? (appData.familyMembers || []).find(x => x.id === currentFamilyEditId) : null;
+  const title = m ? '编辑成员' : '添加成员';
+
+  let genOptions = '';
+  GENERATIONS.forEach(g => {
+    genOptions += `<option value="${g}" ${m && m.generation === g ? 'selected' : ''}>${g}</option>`;
+  });
+  genOptions += `<option value="未分辈分" ${m && m.generation === '未分辈分' ? 'selected' : ''}>未分辈分</option>`;
+
+  let html = `<div class="p-5">
+    <h3 class="text-xl font-bold text-center mb-5">${title}</h3>
+    <div class="space-y-4">
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">姓名</label>
+        <input id="fam-name" type="text" placeholder="如：张三" value="${m ? escapeHtml(m.name) : ''}" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-amber-400 outline-none text-base">
+      </div>
+      <div class="flex gap-3">
+        <div class="flex-1">
+          <label class="block text-sm text-gray-500 mb-1">辈分</label>
+          <select id="fam-generation" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-amber-400 outline-none text-base">
+            ${genOptions}
+          </select>
+        </div>
+        <div class="flex-1">
+          <label class="block text-sm text-gray-500 mb-1">性别</label>
+          <select id="fam-gender" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-amber-400 outline-none text-base">
+            <option value="" ${!m || !m.gender ? 'selected' : ''}>未填</option>
+            <option value="male" ${m && m.gender === 'male' ? 'selected' : ''}>男</option>
+            <option value="female" ${m && m.gender === 'female' ? 'selected' : ''}>女</option>
+          </select>
+        </div>
+      </div>
+      <div class="flex gap-3">
+        <div class="flex-1">
+          <label class="block text-sm text-gray-500 mb-1">出生年份</label>
+          <input id="fam-birthyear" type="text" placeholder="如：1950" value="${m ? escapeHtml(m.birthYear || '') : ''}" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-amber-400 outline-none text-base">
+        </div>
+        <div class="flex-1">
+          <label class="block text-sm text-gray-500 mb-1">关系/称谓</label>
+          <input id="fam-relation" type="text" placeholder="如：祖父" value="${m ? escapeHtml(m.relation || '') : ''}" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-amber-400 outline-none text-base">
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">手机</label>
+        <input id="fam-phone" type="tel" placeholder="选填" value="${m ? escapeHtml(m.phone || '') : ''}" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-amber-400 outline-none text-base">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">住址</label>
+        <input id="fam-address" type="text" placeholder="如：广东广州" value="${m ? escapeHtml(m.address || '') : ''}" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-amber-400 outline-none text-base">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-500 mb-1">备注</label>
+        <textarea id="fam-note" placeholder="选填，如职业、事迹等" rows="2" class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-amber-400 outline-none text-base">${m ? escapeHtml(m.note || '') : ''}</textarea>
+      </div>
+      <button onclick="saveFamilyMember()" class="w-full bg-amber-500 text-white rounded-xl py-3 text-lg font-bold mt-2">保存</button>
+    </div>
+  </div>`;
+  showModal(html);
+}
+
+function saveFamilyMember() {
+  const name = document.getElementById('fam-name').value.trim();
+  if (!name) { alert('请输入姓名'); return; }
+
+  const data = {
+    name: name,
+    generation: document.getElementById('fam-generation').value,
+    gender: document.getElementById('fam-gender').value,
+    birthYear: document.getElementById('fam-birthyear').value.trim(),
+    relation: document.getElementById('fam-relation').value.trim(),
+    phone: document.getElementById('fam-phone').value.trim(),
+    address: document.getElementById('fam-address').value.trim(),
+    note: document.getElementById('fam-note').value.trim()
+  };
+
+  if (currentFamilyEditId) {
+    const m = (appData.familyMembers || []).find(x => x.id === currentFamilyEditId);
+    if (m) Object.assign(m, data);
+  } else {
+    if (!appData.familyMembers) appData.familyMembers = [];
+    data.id = genId('fam');
+    data.createdAt = Date.now();
+    appData.familyMembers.push(data);
+  }
+  saveData(appData);
+  closeModal();
+  renderFamilyTree();
+}
+
+function showFamilyDetail(id) {
+  const m = (appData.familyMembers || []).find(x => x.id === id);
+  if (!m) return;
+  let info = '';
+  if (m.generation) info += `<div class="flex justify-between py-2 border-b border-gray-100"><span class="text-gray-500">辈分</span><span>${escapeHtml(m.generation)}</span></div>`;
+  if (m.gender) info += `<div class="flex justify-between py-2 border-b border-gray-100"><span class="text-gray-500">性别</span><span>${m.gender === 'male' ? '男' : '女'}</span></div>`;
+  if (m.birthYear) info += `<div class="flex justify-between py-2 border-b border-gray-100"><span class="text-gray-500">出生年份</span><span>${escapeHtml(m.birthYear)}</span></div>`;
+  if (m.relation) info += `<div class="flex justify-between py-2 border-b border-gray-100"><span class="text-gray-500">关系/称谓</span><span>${escapeHtml(m.relation)}</span></div>`;
+  if (m.phone) info += `<div class="flex justify-between py-2 border-b border-gray-100"><span class="text-gray-500">手机</span><span>${escapeHtml(m.phone)}</span></div>`;
+  if (m.address) info += `<div class="flex justify-between py-2 border-b border-gray-100"><span class="text-gray-500">住址</span><span>${escapeHtml(m.address)}</span></div>`;
+  if (m.note) info += `<div class="py-2"><span class="text-gray-500 block mb-1">备注</span><span class="text-sm">${escapeHtml(m.note)}</span></div>`;
+  if (!info) info = '<div class="text-center text-gray-400 py-4">暂无详细信息</div>';
+
+  let html = `<div class="p-5">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-xl font-bold">${escapeHtml(m.name)}</h3>
+      <button onclick="closeModal()" class="text-gray-400 text-2xl">✕</button>
+    </div>
+    ${info}
+    <div class="flex gap-3 mt-5">
+      <button onclick="closeModal();showEditFamilyModal('${m.id}')" class="flex-1 bg-amber-500 text-white rounded-xl py-3 text-lg font-bold">编辑</button>
+      <button onclick="closeModal();deleteFamilyMember('${m.id}')" class="flex-1 border-2 border-red-300 text-red-500 rounded-xl py-3 text-lg font-bold">删除</button>
+    </div>
+  </div>`;
+  showModal(html);
+}
+
+function deleteFamilyMember(id) {
+  const m = (appData.familyMembers || []).find(x => x.id === id);
+  if (!m) return;
+  if (!confirm('确定删除「' + m.name + '」的记录？')) return;
+  appData.familyMembers = appData.familyMembers.filter(x => x.id !== id);
+  saveData(appData);
+  renderFamilyTree();
 }
 
 // ===================== 密码保护 =====================
