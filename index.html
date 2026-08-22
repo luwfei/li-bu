@@ -34,6 +34,7 @@ input, textarea, select { font-size: 16px; -webkit-appearance: none; }
       position: absolute; top: 0; left: 0; right: 0; bottom: 0;
       opacity: 0.06;
       background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+      pointer-events: none;
     }
     .cover-border-outer {
       position: relative;
@@ -114,7 +115,11 @@ input, textarea, select { font-size: 16px; -webkit-appearance: none; }
     .cover-enter-btn { animation: coverFloat 3s ease-in-out infinite; }
   #cover-page ~ .fixed { display: none; }
   #cover-page.hidden ~ .fixed { display: block; }
-  #password-modal { z-index: 200; }
+    #password-modal { z-index: 200; }
+    #scan-table-container { flex: 1; overflow-y: auto; }
+    .scan-table-header { flex-shrink: 0; }
+    .scan-table-footer { flex-shrink: 0; }
+    #modal-content.scan-modal-flex { display: flex; flex-direction: column; max-height: 92vh; }
   .pwd-input {
     text-align: center;
     letter-spacing: 8px;
@@ -1333,24 +1338,67 @@ function scanParseGiftLines(rawLines) {
   const results = [];
   const remarkDict = [...new Set([...(appData.remarkOptions || []), '亲戚','朋友','同学','同事','本家','外家','邻居','其他','家人','战友','老乡'])].sort((a, b) => b.length - a.length);
 
+  // 常见地址/住地关键词（用于识别地址信息）
+  const addressKeywords = ['村','镇','乡','县','市','区','街','路','号','组','队','屯','庄','寨','湾','坝','沟','岭','屯','堡','院','楼','单元','室','栋','幢','东','西','南','北','上','下','里','外','前','后','大','小','新','老','本','邻','附','近','远','城','郊'];
+
   const consumed = new Set();
 
-  // —— 逐行解析（同行的姓名+金额/中文大写金额/备注）——
+  // 提取电话号码（11位手机号）
+  const extractPhone = (line) => {
+    const m = line.match(/1[3-9]\d{9}/);
+    return m ? m[0] : '';
+  };
+
+  // 尝试从行中提取地址（中文地名特征）
+  const extractAddress = (line, name, amount) => {
+    // 移除姓名、金额、电话、备注词后，剩余的中文部分可能是地址
+    let s = line;
+    if (name) s = s.replace(name, ' ');
+    if (amount) s = s.replace(String(amount), ' ');
+    const phone = extractPhone(line);
+    if (phone) s = s.replace(phone, ' ');
+    // 移除备注词
+    remarkDict.forEach(r => { s = s.replace(r, ' '); });
+    // 移除表头词和单位词
+    s = s.replace(/姓名|礼金|金额|电话|手机|住地|地址|备注|随礼|贺礼|元|人民币|整/g, ' ');
+    s = s.replace(/^\s*(\d{1,3})\s*[、.．,，:：)）]?\s*/, '');
+    // 提取剩余的中文词中，含地址关键词的
+    const cnParts = (s.match(/[\u4e00-\u9fa5]{2,12}/g) || []);
+    for (const part of cnParts) {
+      if (part.length >= 2 && part.length <= 12 && addressKeywords.some(k => part.includes(k))) {
+        return part;
+      }
+    }
+    // 如果没有明显地址关键词，取剩余的最长中文词作为候选
+    if (cnParts.length > 0) {
+      const longest = cnParts.sort((a, b) => b.length - a.length)[0];
+      if (longest.length >= 2 && longest.length <= 12) return longest;
+    }
+    return '';
+  };
+
+  // —— 逐行解析（同行的姓名+金额/中文大写金额/备注+电话+地址）——
   for (let i = 0; i < rawLines.length; i++) {
     const line = rawLines[i];
     if (!/[\u4e00-\u9fa5]/.test(line) && !/\d/.test(line)) continue;
     if (scanIsHeaderLine(line)) continue;
 
+    const phone = extractPhone(line);
+
     // 去掉日期、行首序号（如 "12 张三" "12、张三" "1.张三"）；开头数字≤50视为序号剥离，≥50视为金额保留
     let s = line.replace(/(?:19|20)\d{2}\s*[年.\-/]\s*\d{1,2}\s*[月.\-/]\s*\d{1,2}\s*日?/g, ' ')
                 .replace(/(?:19|20)\d{2}\s*年/g, ' ')
                 .replace(/^\s*(\d{1,3})\s*[、.．,，:：)）]?\s*/, (m, num) => (parseInt(num, 10) <= 50 ? '' : m));
+    // 移除已提取的电话，避免分词干扰
+    if (phone) s = s.replace(phone, ' ');
 
-    // 分词：中文串 / 数字串
+    // 分词：中文串 / 数字串（11位数字作为电话单独处理，不进入金额分词）
     const tokens = [];
+    // 先替换11位电话为占位符，避免被数字正则匹配
+    let s2 = s.replace(/1[3-9]\d{9}/g, ' ');
     const re = /([\u4e00-\u9fa5]+)|(\d+(?:\.\d{1,2})?)/g;
     let m;
-    while ((m = re.exec(s)) !== null) {
+    while ((m = re.exec(s2)) !== null) {
       tokens.push(m[1] ? { t: 'cn', v: m[1] } : { t: 'num', v: m[2] });
     }
 
@@ -1365,7 +1413,8 @@ function scanParseGiftLines(rawLines) {
         if (pendingName && SCAN_CN_AMOUNT_RE.test(tk.v)) {
           const val = chineseNumberToArabic(tk.v);
           if (val >= 1 && val <= 200000) {
-            linePairs.push({ name: pendingName.name, amount: val, remark: pendingName.remark || '' });
+            const addr = extractAddress(line, pendingName.name, val);
+            linePairs.push({ name: pendingName.name, amount: val, remark: pendingName.remark || '', address: addr, phone: phone });
             pendingName = null;
             continue;
           }
@@ -1383,7 +1432,8 @@ function scanParseGiftLines(rawLines) {
         if (!sr.name || scanIsHeaderWord(sr.name) || sr.name.length > 8) { pendingName = null; continue; }
         if (pendingAmount != null) {
           // 金额在前、姓名在后（如"500 张三"）→ 直接配对
-          linePairs.push({ name: sr.name, amount: pendingAmount, remark: sr.remark || '' });
+          const addr = extractAddress(line, sr.name, pendingAmount);
+          linePairs.push({ name: sr.name, amount: pendingAmount, remark: sr.remark || '', address: addr, phone: phone });
           pendingAmount = null;
           continue;
         }
@@ -1391,9 +1441,10 @@ function scanParseGiftLines(rawLines) {
       } else {
         const digits = tk.v.replace('.', '');
         const val = parseFloat(tk.v);
-        if (digits.length >= 8) continue; // 手机号等长数字
+        if (digits.length >= 8) continue; // 手机号等长数字已过滤
         if (pendingName && val >= 1 && val <= 200000) {
-          linePairs.push({ name: pendingName.name, amount: val, remark: pendingName.remark || '' });
+          const addr = extractAddress(line, pendingName.name, val);
+          linePairs.push({ name: pendingName.name, amount: val, remark: pendingName.remark || '', address: addr, phone: phone });
           pendingName = null;
         } else if (pendingAmount == null && val >= 1 && val <= 200000) {
           // 暂存金额，等待后续出现的姓名（处理"500 张三"这类金额在前的写法）
@@ -1403,7 +1454,7 @@ function scanParseGiftLines(rawLines) {
     }
 
     if (linePairs.length > 0) {
-      linePairs.forEach(p => results.push({ name: p.name, amount: p.amount, remark: p.remark, rawLine: line }));
+      linePairs.forEach(p => results.push({ name: p.name, amount: p.amount, remark: p.remark, address: p.address || '', phone: p.phone || '', rawLine: line }));
       consumed.add(i);
     }
   }
@@ -1425,7 +1476,7 @@ function scanParseGiftLines(rawLines) {
         if (val >= 1 && val <= 200000) {
           const sr = scanSplitNameRemark(nl.replace(/^\d{1,3}\s*/, ''), remarkDict);
           if (sr.name && !scanIsHeaderWord(sr.name) && sr.name.length <= 8) {
-            results.push({ name: sr.name, amount: val, remark: sr.remark || '', rawLine: nl + ' ' + numLines[idx] });
+            results.push({ name: sr.name, amount: val, remark: sr.remark || '', address: '', phone: '', rawLine: nl + ' ' + numLines[idx] });
           }
         }
       });
@@ -1443,7 +1494,7 @@ function scanParseGiftLines(rawLines) {
       if (val >= 1 && val <= 200000) {
         const sr = scanSplitNameRemark(a.replace(/^\d{1,3}\s*/, ''), remarkDict);
         if (sr.name && !scanIsHeaderWord(sr.name) && sr.name.length <= 8) {
-          results.push({ name: sr.name, amount: val, remark: sr.remark || '', rawLine: a + ' ' + b });
+          results.push({ name: sr.name, amount: val, remark: sr.remark || '', address: '', phone: '', rawLine: a + ' ' + b });
           consumed.add(i); consumed.add(i + 1);
         }
       }
@@ -1455,6 +1506,7 @@ function scanParseGiftLines(rawLines) {
     if (consumed.has(i)) continue;
     let line = rawLines[i].trim();
     if (scanIsHeaderLine(line)) continue;
+    const phone = extractPhone(line);
     const cnParts = (line.match(/[\u4e00-\u9fa5]{1,8}/g) || [])
       .filter(w => !scanIsHeaderWord(w) && !SCAN_UNIT_WORDS.includes(w) && !remarkDict.includes(w));
     const numParts = (line.match(/\d{1,6}/g) || []).map(Number).filter(n => n >= 20 && n <= 200000);
@@ -1465,9 +1517,10 @@ function scanParseGiftLines(rawLines) {
         const sb = (b.length >= 2 && b.length <= 4) ? 0 : 1;
         return sa - sb;
       })[0];
-      if (name && name.length >= 2) results.push({ name, amount: '', remark: '', rawLine: line, partial: true });
+      const addr = extractAddress(line, name, '');
+      if (name && name.length >= 2) results.push({ name, amount: '', remark: '', address: addr, phone: phone, rawLine: line, partial: true });
     } else if (numParts.length && !cnParts.length) {
-      numParts.slice(0, 2).forEach(n => results.push({ name: '', amount: n, remark: '', rawLine: line, partial: true }));
+      numParts.slice(0, 2).forEach(n => results.push({ name: '', amount: n, remark: '', address: '', phone: phone, rawLine: line, partial: true }));
     }
   }
 
@@ -1589,7 +1642,7 @@ function getOCRWorker(logger) {
 }
 
 // 去重：完整记录按"姓名_金额"去重；半成品按姓名/金额去重（避免多 PSM 模式产生 6 倍重复）；限制总量避免刷屏
-function scanDedupe(results, cap = 150) {
+function scanDedupe(results) {
   const uniq = [];
   const seenFull = new Set();
   const seenName = new Set();
@@ -1612,13 +1665,46 @@ function scanDedupe(results, cap = 150) {
       uniq.push(r);
     }
   });
-  return uniq.slice(0, cap);
+  return uniq;
 }
 
 // 从原始 OCR 文本构建候选行：
 // 1) 优先用结构化解析；2) 若解析为 0，退化为"逐行尽量抽取姓名/金额"，保证始终有可勾选的行
 function scanRowsFromRaw(text) {
   const rawLines = scanNormalizeText(text).split(/\n|\r/).map(l => l.trim()).filter(l => l.length > 0);
+
+  // 备注词表（与 scanParseGiftLines 保持一致）
+  const remarkDict = [...new Set([...(appData.remarkOptions || []), '亲戚','朋友','同学','同事','本家','外家','邻居','其他','家人','战友','老乡'])].sort((a, b) => b.length - a.length);
+
+  // 提取电话号码
+  const extractPhone = (line) => {
+    const m = line.match(/1[3-9]\d{9}/);
+    return m ? m[0] : '';
+  };
+
+  // 尝试提取地址（中文地名特征）
+  const extractAddress = (line, name, amount) => {
+    const addressKeywords = ['村','镇','乡','县','市','区','街','路','号','组','队','屯','庄','寨','湾','坝','沟','岭','屯','堡','院','楼','单元','室','栋','幢','东','西','南','北','上','下','里','外','前','后','大','小','新','老','本','邻','附','近','远','城','郊'];
+    let s = line;
+    if (name) s = s.replace(name, ' ');
+    if (amount) s = s.replace(String(amount), ' ');
+    const phone = extractPhone(line);
+    if (phone) s = s.replace(phone, ' ');
+    s = s.replace(/姓名|礼金|金额|电话|手机|住地|地址|备注|随礼|贺礼|元|人民币|整/g, ' ');
+    s = s.replace(/^\s*(\d{1,3})\s*[、.．,，:：)）]?\s*/, '');
+    const cnParts = (s.match(/[\u4e00-\u9fa5]{2,12}/g) || []);
+    for (const part of cnParts) {
+      if (part.length >= 2 && part.length <= 12 && addressKeywords.some(k => part.includes(k))) {
+        return part;
+      }
+    }
+    if (cnParts.length > 0) {
+      const longest = cnParts.sort((a, b) => b.length - a.length)[0];
+      if (longest.length >= 2 && longest.length <= 12) return longest;
+    }
+    return '';
+  };
+
   let rows = scanParseGiftLines(rawLines);
   if (rows.length === 0) {
     rawLines.forEach(line => {
@@ -1634,8 +1720,10 @@ function scanRowsFromRaw(text) {
         ? cn.slice().sort((a, b) => ((a.length >= 2 && a.length <= 4) ? 0 : 1) - ((b.length >= 2 && b.length <= 4) ? 0 : 1))[0]
         : '';
       const amount = nums.length ? nums[0] : '';
+      const phone = extractPhone(line);
+      const address = extractAddress(line, name, amount);
       if (name || amount) {
-        rows.push({ name: name || '', amount: amount || '', remark: '', rawLine: line, partial: true });
+        rows.push({ name: name || '', amount: amount || '', remark: '', address: address || '', phone: phone || '', rawLine: line, partial: true });
       }
     });
   }
@@ -1648,7 +1736,7 @@ function rescanFromText(textareaId, evId) {
   if (!ta) return;
   const rawLines = scanNormalizeText(ta.value).split(/\n|\r/).map(l => l.trim()).filter(l => l.length > 0);
   const results = scanParseGiftLines(rawLines);
-  currentScanEditResults = scanDedupe(results).map(r => ({ name: r.name || '', amount: r.amount || '', remark: r.remark || '' }));
+  currentScanEditResults = scanDedupe(results).map(r => ({ name: r.name || '', amount: r.amount || '', remark: r.remark || '', address: r.address || '', phone: r.phone || '' }));
   renderScanBatchTable(evId);
 }
 
@@ -1778,7 +1866,7 @@ async function doOCRScan(evId, fromCamera) {
 let currentScanEditResults = [];
 
 function showScanEditModal(results, evId) {
-  currentScanEditResults = results.map(r => ({ name: r.name || '', amount: r.amount || '', remark: r.remark || '' }));
+  currentScanEditResults = results.map(r => ({ name: r.name || '', amount: r.amount || '', remark: r.remark || '', address: r.address || '', phone: r.phone || '' }));
   window._scanEventId = evId;
   renderScanBatchTable(evId);
 }
@@ -1787,7 +1875,8 @@ function renderScanBatchTable(evId) {
   const total = currentScanEditResults.length;
   const partialCount = currentScanEditResults.filter(r => !r.name || !r.amount).length;
   const rawText = escapeHtml(window._lastScanRaw || '');
-  let html = `<div class="p-4">
+  let html = `<div class="p-4" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
+  <div class="scan-table-header">
     <h3 class="text-xl font-bold text-center mb-1">识别结果 · 共 ${total} 条</h3>
     <p class="text-center text-xs text-gray-400 mb-2">已自动填入，可直接修改；${partialCount > 0 ? `其中 <span class="text-orange-500 font-bold">${partialCount}</span> 条信息不全（缺姓名或金额），请补全后再导入；` : ''}勾选后点底部按钮导入，取消勾选可跳过</p>
     ${total === 0 ? `<div class="bg-yellow-50 rounded-xl p-3 mb-3 text-xs text-yellow-700">未从图片中识别到任何文字行。可：① 在下方"识别原文"框粘贴/修正文字后点"重新解析"；② 点"+ 手动添加一行"逐条录入。</div>` : `<div class="flex items-center gap-2 mb-2">
@@ -1800,7 +1889,8 @@ function renderScanBatchTable(evId) {
       <textarea id="scan-paste-batch" class="w-full border border-gray-200 rounded-lg p-2 h-28 mt-1 text-xs">${rawText}</textarea>
       <button onclick="rescanFromText('scan-paste-batch', '${evId}')" class="mt-1 w-full bg-gray-200 text-gray-700 rounded-lg py-2 text-sm font-bold">用这段文字重新解析</button>
     </details>
-    <div class="space-y-2" style="max-height:50vh; overflow-y:auto;">`;
+  </div>
+  <div id="scan-table-container" class="space-y-2">`;
   currentScanEditResults.forEach((r, i) => {
     const isPartial = !r.name || !r.amount;
     html += `<div class="bg-gray-50 rounded-xl p-3 flex items-start gap-2 ${isPartial ? 'ring-1 ring-orange-300' : ''}">
@@ -1809,6 +1899,10 @@ function renderScanBatchTable(evId) {
         <div class="grid grid-cols-2 gap-2">
           <input type="text" id="scan-name-${i}" value="${escapeHtml(String(r.name || ''))}" placeholder="姓名" class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-red-400 outline-none">
           <input type="number" id="scan-amount-${i}" value="${r.amount}" placeholder="金额(元)" class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-red-400 outline-none">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <input type="text" id="scan-address-${i}" value="${escapeHtml(r.address || '')}" placeholder="住地（如：本村、北京）" class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-red-400 outline-none">
+          <input type="tel" id="scan-phone-${i}" value="${escapeHtml(r.phone || '')}" placeholder="电话（选填）" class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-red-400 outline-none">
         </div>
         <div class="flex flex-wrap gap-1">
           ${appData.remarkOptions.map(opt => `<button type="button" onclick="appendRemarkTag('scan-remark-${i}', '${escapeHtml(opt)}')" class="bg-white border border-gray-200 rounded-full px-2.5 py-1 text-xs text-gray-600 active:bg-red-50">${escapeHtml(opt)}</button>`).join('')}
@@ -1820,9 +1914,11 @@ function renderScanBatchTable(evId) {
     </div>`;
   });
   html += `</div>
+  <div class="scan-table-footer">
     <button onclick="addScanRow()" class="w-full bg-gray-100 text-gray-600 rounded-xl py-2 text-sm font-bold mt-3">+ 手动添加一行</button>
     <button onclick="importScanRows('${evId}')" class="w-full bg-red-500 text-white rounded-xl py-3 text-lg font-bold mt-2">一键导入全部勾选记录</button>
     <button onclick="closeModal()" class="w-full bg-gray-100 text-gray-600 rounded-xl py-3 text-lg font-bold mt-2">取消</button>
+  </div>
   </div>`;
   showModal(html);
 }
@@ -1841,7 +1937,7 @@ function removeScanRow(i) {
 }
 
 function addScanRow() {
-  currentScanEditResults.push({ name: '', amount: '', remark: '' });
+  currentScanEditResults.push({ name: '', amount: '', remark: '', address: '', phone: '' });
   renderScanBatchTable(window._scanEventId);
 }
 
@@ -1852,11 +1948,13 @@ function importScanRows(evId) {
     if (chk && !chk.checked) return;
     const name = (document.getElementById('scan-name-' + i).value || '').trim();
     const amount = parseFloat(document.getElementById('scan-amount-' + i).value);
+    const address = (document.getElementById('scan-address-' + i).value || '').trim();
+    const phone = (document.getElementById('scan-phone-' + i).value || '').trim();
     const remark = (document.getElementById('scan-remark-' + i).value || '').trim();
     if (!name || isNaN(amount) || amount <= 0) return;
     appData.gifts.push({
       id: genId('gift'), eventId: evId, name, amount,
-      address: '', phone: '', remark,
+      address: address || '', phone: phone || '', remark,
       createdAt: Date.now(), fromGuest: false
     });
     count++;
@@ -2651,14 +2749,27 @@ function showGiftMenu() {
 function showModal(content) {
   remarkTagHistory = {};
   const overlay = document.getElementById('modal-overlay');
-  document.getElementById('modal-content').innerHTML = content;
+  const modalContent = document.getElementById('modal-content');
+  modalContent.innerHTML = content;
+  // 扫描表格模式：检测内容是否包含扫描表格专用结构，启用 flex 布局
+  if (content.includes('scan-table-container')) {
+    modalContent.classList.add('scan-modal-flex');
+    modalContent.classList.remove('overflow-y-auto');
+  } else {
+    modalContent.classList.remove('scan-modal-flex');
+    modalContent.classList.add('overflow-y-auto');
+  }
   overlay.classList.add('active');
 }
 
 function closeModal(e) {
   if (e && e.target !== document.getElementById('modal-overlay')) return;
-  document.getElementById('modal-overlay').classList.remove('active');
-  document.getElementById('modal-content').innerHTML = '';
+  const overlay = document.getElementById('modal-overlay');
+  const modalContent = document.getElementById('modal-content');
+  overlay.classList.remove('active');
+  modalContent.innerHTML = '';
+  modalContent.classList.remove('scan-modal-flex');
+  modalContent.classList.add('overflow-y-auto');
 }
 
 // ===================== 密码保护 =====================
